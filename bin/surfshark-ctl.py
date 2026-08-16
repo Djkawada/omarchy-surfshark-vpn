@@ -36,6 +36,7 @@ LOCATION_DB = {
     "gb-man": {"country": "United Kingdom", "city": "Manchester", "flag": "🇬🇧"},
     "ca-tor": {"country": "Canada", "city": "Toronto", "flag": "🇨🇦"},
     "ca-mon": {"country": "Canada", "city": "Montreal", "flag": "🇨🇦"},
+    "ca-van": {"country": "Canada", "city": "Vancouver", "flag": "🇨🇦"},
     "ch-zur": {"country": "Switzerland", "city": "Zurich", "flag": "🇨🇭"},
     "nl-ams": {"country": "Netherlands", "city": "Amsterdam", "flag": "🇳🇱"},
     "es-mad": {"country": "Spain", "city": "Madrid", "flag": "🇪🇸"},
@@ -47,6 +48,7 @@ LOCATION_DB = {
     "no-osl": {"country": "Norway", "city": "Oslo", "flag": "🇳🇴"},
     "fi-hel": {"country": "Finland", "city": "Helsinki", "flag": "🇫🇮"},
     "sg-sin": {"country": "Singapore", "city": "Singapore", "flag": "🇸🇬"},
+    "sg-sng": {"country": "Singapore", "city": "Singapore", "flag": "🇸🇬"},
     "au-syd": {"country": "Australia", "city": "Sydney", "flag": "🇦🇺"},
     "au-mel": {"country": "Australia", "city": "Melbourne", "flag": "🇦🇺"},
     "br-sao": {"country": "Brazil", "city": "São Paulo", "flag": "🇧🇷"}

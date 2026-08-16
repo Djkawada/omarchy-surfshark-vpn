@@ -112,6 +112,7 @@ BarWidget {
   }
 
   function disconnectVPN() {
+    root.isConnected = false
     disconnectProc.command = [root.ctlPath, "disconnect"]
     disconnectProc.running = true
   }

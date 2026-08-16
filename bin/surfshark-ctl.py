@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Surfshark Native WireGuard & NetworkManager Controller for Omarchy Linux.
-Provides zero-bloat VPN management, favorites system, live IP monitoring, and location switching.
+Provides zero-bloat VPN management, favorites system, async IP monitoring, and location switching.
 """
 
 import sys
@@ -10,6 +10,7 @@ import glob
 import json
 import subprocess
 import time
+import threading
 import urllib.request
 import urllib.error
 
@@ -80,11 +81,9 @@ def parse_profile_name(filename, favorites=None):
         favorites = []
     base = os.path.basename(filename)
     name = os.path.splitext(base)[0].lower()
-    # Normalize (e.g. surfshark_fr-par or fr-par_wireguard)
     key = name.replace("surfshark-", "").replace("surfshark_", "").replace("-wireguard", "").replace("_wireguard", "")
     info = LOCATION_DB.get(key, None)
     if not info:
-        # Try country prefix
         parts = key.split("-")
         if len(parts) >= 2:
             c_code = parts[0]
@@ -112,10 +111,9 @@ def get_installed_profiles(favorites=None):
     return profiles
 
 def get_active_connection():
-    # 1. Check nmcli active connections
     try:
         res = subprocess.run(["nmcli", "-t", "-f", "NAME,TYPE,DEVICE", "con", "show", "--active"],
-                             capture_output=True, text=True, timeout=1.5)
+                             capture_output=True, text=True, timeout=1.2)
         if res.returncode == 0:
             for line in res.stdout.strip().split("\n"):
                 if not line:
@@ -128,9 +126,8 @@ def get_active_connection():
     except Exception:
         pass
 
-    # 2. Check wg show
     try:
-        res = subprocess.run(["wg", "show", "interfaces"], capture_output=True, text=True, timeout=1.5)
+        res = subprocess.run(["wg", "show", "interfaces"], capture_output=True, text=True, timeout=1.0)
         if res.returncode == 0 and res.stdout.strip():
             ifaces = res.stdout.strip().split()
             if ifaces:
@@ -142,14 +139,14 @@ def get_active_connection():
 
 def fetch_public_ip():
     urls = [
-        "https://api.surfshark.com/v1/server/user",
         "https://api.myip.com",
+        "https://api.surfshark.com/v1/server/user",
         "https://ipinfo.io/json"
     ]
     for u in urls:
         try:
             req = urllib.request.Request(u, headers={"User-Agent": "Omarchy-Surfshark-Plugin/1.0"})
-            with urllib.request.urlopen(req, timeout=2.5) as resp:
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 ip = data.get("ip", data.get("ipAddress", None))
                 if ip:
@@ -159,6 +156,14 @@ def fetch_public_ip():
         except Exception:
             continue
     return {"ip": "—", "country": "", "city": ""}
+
+def async_ip_check():
+    ip_info = fetch_public_ip()
+    if ip_info and ip_info.get("ip") and ip_info["ip"] != "—":
+        state = load_state()
+        state["last_ip"] = ip_info["ip"]
+        state["last_ip_check"] = time.time()
+        save_state(state)
 
 def cmd_status():
     state = load_state()
@@ -172,13 +177,12 @@ def cmd_status():
         cname = active_conn["name"].replace("surfshark-", "").replace("surfshark_", "")
         active_profile_info = parse_profile_name(cname, favs)
 
-    # Check IP if connected or if last check is older than 60s
     now = time.time()
-    if is_connected and (now - state.get("last_ip_check", 0) > 30 or state.get("last_ip") == "—"):
-        ip_info = fetch_public_ip()
-        state["last_ip"] = ip_info["ip"]
-        state["last_ip_check"] = now
-        save_state(state)
+    if is_connected:
+        if now - state.get("last_ip_check", 0) > 30 or state.get("last_ip") == "—":
+            threading.Thread(target=async_ip_check, daemon=True).start()
+    else:
+        state["last_ip"] = "—"
 
     fav_profiles = [p for p in profiles if p["is_favorite"]]
 
@@ -213,7 +217,6 @@ def cmd_connect(profile_name):
     ensure_dirs()
     state = load_state()
     
-    # Locate .conf
     conf_path = os.path.join(PROFILES_DIR, f"{profile_name}.conf")
     if not os.path.exists(conf_path):
         matches = glob.glob(os.path.join(PROFILES_DIR, f"*{profile_name}*.conf"))
@@ -223,40 +226,37 @@ def cmd_connect(profile_name):
             print(json.dumps({"success": False, "error": f"Profile '{profile_name}' not found."}))
             return
 
-    conn_name = f"surfshark-{os.path.splitext(os.path.basename(conf_path))[0]}"
+    base_name = os.path.splitext(os.path.basename(conf_path))[0]
 
     # Disconnect existing connection first
     cmd_disconnect(silent=True)
 
-    # 1. Try NetworkManager import & up
     try:
-        # Check if already imported
-        show_res = subprocess.run(["nmcli", "connection", "show", conn_name],
-                                  capture_output=True, text=True)
-        if show_res.returncode != 0:
-            # Import wireguard profile
-            subprocess.run(["nmcli", "connection", "import", "type", "wireguard", "file", conf_path],
-                           capture_output=True, text=True)
+        # Import wireguard profile (NetworkManager creates connection named base_name)
+        subprocess.run(["nmcli", "connection", "import", "type", "wireguard", "file", conf_path],
+                       capture_output=True, text=True, timeout=4)
 
-        # Bring connection UP
-        up_res = subprocess.run(["nmcli", "connection", "up", conn_name],
-                                capture_output=True, text=True, timeout=8)
-        if up_res.returncode == 0:
-            state["last_profile"] = profile_name
-            state["last_ip_check"] = 0
-            save_state(state)
-            print(json.dumps({"success": True, "connected": True, "profile": profile_name}))
-            return
+        for target in [base_name, f"surfshark-{base_name}"]:
+            up_res = subprocess.run(["nmcli", "connection", "up", target],
+                                    capture_output=True, text=True, timeout=5)
+            if up_res.returncode == 0:
+                state["last_profile"] = profile_name
+                state["last_ip_check"] = 0
+                save_state(state)
+                # Kick off immediate async IP update
+                threading.Thread(target=async_ip_check, daemon=True).start()
+                print(json.dumps({"success": True, "connected": True, "profile": profile_name}))
+                return
     except Exception:
         pass
 
-    # 2. Fallback to wg-quick if available
     try:
-        res = subprocess.run(["wg-quick", "up", conf_path], capture_output=True, text=True, timeout=8)
+        res = subprocess.run(["wg-quick", "up", conf_path], capture_output=True, text=True, timeout=5)
         if res.returncode == 0:
             state["last_profile"] = profile_name
             state["last_ip_check"] = 0
             save_state(state)
+            threading.Thread(target=async_ip_check, daemon=True).start()
             print(json.dumps({"success": True, "connected": True, "profile": profile_name}))
             return
     except Exception:
@@ -266,15 +266,30 @@ def cmd_connect(profile_name):
 
 def cmd_disconnect(silent=False):
     state = load_state()
-    active_conn = get_active_connection()
-    if active_conn:
-        if active_conn["type"] == "nmcli":
-            subprocess.run(["nmcli", "connection", "down", active_conn["name"]],
-                           capture_output=True, text=True)
-        elif active_conn["type"] == "wg":
-            subprocess.run(["wg-quick", "down", active_conn["name"]],
-                           capture_output=True, text=True)
+    try:
+        res = subprocess.run(["nmcli", "-t", "-f", "NAME,TYPE", "con", "show", "--active"],
+                             capture_output=True, text=True, timeout=2)
+        if res.returncode == 0:
+            for line in res.stdout.strip().split("\n"):
+                if not line:
+                    continue
+                parts = line.split(":")
+                if len(parts) >= 2 and (parts[1] == "wireguard" or "surfshark" in parts[0].lower()):
+                    subprocess.run(["nmcli", "connection", "down", parts[0]],
+                                   capture_output=True, text=True, timeout=3)
+    except Exception:
+        pass
 
+    try:
+        res = subprocess.run(["wg", "show", "interfaces"], capture_output=True, text=True, timeout=2)
+        if res.returncode == 0 and res.stdout.strip():
+            for iface in res.stdout.strip().split():
+                subprocess.run(["wg-quick", "down", iface], capture_output=True, text=True, timeout=3)
+    except Exception:
+        pass
+
+    state["last_profile"] = None
+    state["last_ip"] = "—"
     state["last_ip_check"] = 0
     save_state(state)
     if not silent:

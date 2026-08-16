@@ -12,7 +12,8 @@ BarWidget {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  readonly property string ctlPath: Qt.resolvedUrl("bin/surfshark-ctl.py").toString().replace(/^file:\/\//, "")
+  readonly property string ctlPath: Qt.resolvedUrl("bin/surfshark-ctl").toString().replace(/^file:\/\//, "")
+  readonly property string shPath: Qt.resolvedUrl("bin/surfshark-vpn.sh").toString().replace(/^file:\/\//, "")
   
   property string manualLang: ""
   readonly property string currentLang: {
@@ -90,15 +91,64 @@ BarWidget {
 
   property bool isConnected: false
   property string publicIp: "—"
+  property string ipv4: "—"
+  property string ipv6: "—"
   property var activeProfile: null
   property var profileList: []
   property var favoriteList: []
   property string configDir: ""
+  property var keys: ({ public_key: "", private_key: "" })
   property bool panelOpen: false
   property bool controlCenterOpen: false
-
   property bool isConnecting: false
   property string pendingProfileId: ""
+
+  Process {
+    id: saveKeysProc
+    onRunningChanged: {
+      if (!running) root.refresh()
+    }
+  }
+
+  function saveKeys(pubKey, privKey) {
+    saveKeysProc.running = false
+    saveKeysProc.command = ["systemd-run", "--user", "--pipe", root.ctlPath, "save-keys", pubKey, privKey]
+    saveKeysProc.running = true
+  }
+
+  Process {
+    id: actionProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: console.log("[Surfshark action stdout]: " + text)
+    }
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: console.log("[Surfshark action stderr]: " + text)
+    }
+    onRunningChanged: {
+      if (!running) {
+        console.log("[Surfshark action finished]")
+        root.isConnecting = false
+        root.pendingProfileId = ""
+        root.refresh()
+      }
+    }
+  }
+
+  Process {
+    id: toggleFavProc
+    onRunningChanged: {
+      if (!running) root.refresh()
+    }
+  }
+
+  Process { id: setLangProc }
+
+  Process {
+    id: openFolderProc
+    command: ["xdg-open", root.configDir || "/home/pierre/.config/surfshark-vpn/configs"]
+  }
 
   // Dismiss handler for PopupCard FocusGrab
   function close() {
@@ -110,30 +160,33 @@ BarWidget {
   }
 
   function connectTo(profileId) {
+    console.log("[Surfshark] connectTo called for: " + profileId)
     root.isConnecting = true
     root.pendingProfileId = profileId
-    if (connectProc.running) connectProc.running = false
-    connectProc.command = [root.ctlPath, "connect", profileId]
-    connectProc.running = true
+    actionProc.running = false
+    actionProc.command = ["systemd-run", "--user", "--pipe", root.shPath, "connect", profileId]
+    actionProc.running = true
   }
 
   function disconnectVPN() {
+    console.log("[Surfshark] disconnectVPN called")
     root.isConnected = false
     root.isConnecting = false
-    if (disconnectProc.running) disconnectProc.running = false
-    disconnectProc.command = [root.ctlPath, "disconnect"]
-    disconnectProc.running = true
+    root.pendingProfileId = ""
+    actionProc.running = false
+    actionProc.command = ["systemd-run", "--user", "--pipe", root.shPath, "disconnect"]
+    actionProc.running = true
   }
 
   function toggleFavorite(profileId) {
-    if (toggleFavProc.running) toggleFavProc.running = false
+    toggleFavProc.running = false
     toggleFavProc.command = [root.ctlPath, "toggle-favorite", profileId]
     toggleFavProc.running = true
   }
 
   function setLanguage(l) {
     root.manualLang = l
-    if (setLangProc.running) setLangProc.running = false
+    setLangProc.running = false
     setLangProc.command = [root.ctlPath, "set-lang", l]
     setLangProc.running = true
   }
@@ -147,6 +200,7 @@ BarWidget {
   }
 
   function openFolder() {
+    openFolderProc.running = false
     openFolderProc.running = true
   }
 
@@ -159,7 +213,7 @@ BarWidget {
     onTriggered: root.refresh()
   }
 
-  // --- Backend Process Handlers ---
+  // --- Backend Status Monitor ---
   Process {
     id: statusProc
     command: [root.ctlPath, "status"]
@@ -168,54 +222,26 @@ BarWidget {
       onStreamFinished: {
         try {
           var data = JSON.parse(text || "{}")
+          console.log("[Surfshark] Status received: connected=" + data.connected + " ip=" + data.public_ip + " profs=" + (data.profiles ? data.profiles.length : 0))
           root.isConnected = Boolean(data.connected)
+          if (root.isConnected) {
+            root.isConnecting = false
+            root.pendingProfileId = ""
+          }
           root.publicIp = data.public_ip || "—"
+          root.ipv4 = data.ipv4 || data.public_ip || "—"
+          root.ipv6 = data.ipv6 || "—"
           root.activeProfile = data.active_profile || null
           root.profileList = data.profiles || []
           root.favoriteList = data.favorites || []
           root.configDir = data.config_dir || ""
+          if (data.keys) root.keys = data.keys
           if (data.lang) root.manualLang = data.lang
-        } catch (e) {}
+        } catch (e) {
+          console.log("[Surfshark] JSON parse error: " + e + " raw: " + text)
+        }
       }
     }
-  }
-
-  Process {
-    id: connectProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        root.isConnecting = false
-        root.pendingProfileId = ""
-        root.refresh()
-      }
-    }
-  }
-
-  Process {
-    id: disconnectProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        root.isConnecting = false
-        root.refresh()
-      }
-    }
-  }
-
-  Process {
-    id: toggleFavProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.refresh()
-    }
-  }
-
-  Process { id: setLangProc }
-
-  Process {
-    id: openFolderProc
-    command: ["xdg-open", root.configDir || "/home/pierre/.config/surfshark-vpn/configs"]
   }
 
   Loader {
@@ -236,7 +262,7 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     slotSize: Style.bar.statusSlot
-    tooltipText: root.isConnected ? (root.t("app_title") + " : " + root.t("connected") + " 🟢\n" + (root.activeProfile ? root.activeProfile.display_name : "VPN Tunnel") + "\n" + root.t("public_ip") + root.publicIp) : (root.t("app_title") + " : " + root.t("disconnected") + " ⚪\n" + root.t("public_ip") + root.publicIp)
+    tooltipText: root.isConnected ? (root.t("app_title") + " : " + root.t("connected") + " 🟢\n" + (root.activeProfile ? root.activeProfile.display_name : "VPN Tunnel") + "\nIPv4: " + root.ipv4 + (root.ipv6 !== "—" ? ("\nIPv6: " + root.ipv6) : "")) : (root.t("app_title") + " : " + root.t("disconnected") + " ⚪\nIPv4: " + root.ipv4)
 
     iconComponent: Component {
       Item {
@@ -326,31 +352,59 @@ BarWidget {
         }
       }
 
-      // Public IP Pill
+      // Public IP Card (IPv4 + IPv6)
       Rectangle {
         width: parent.width
-        height: Style.space(32)
+        implicitHeight: ipCol.implicitHeight + Style.space(16)
         color: root.isConnected ? "#0d2b27" : "#1a202c"
         radius: 6
         border.color: root.isConnected ? "#16D2B6" : "#2d3748"
         border.width: 1
 
-        Row {
+        Column {
+          id: ipCol
           anchors.centerIn: parent
-          spacing: Style.space(8)
+          spacing: Style.space(4)
 
-          Text {
-            text: root.t("public_ip")
-            font.family: Style.font.family
-            font.pixelSize: 13
-            color: Color.muted
+          Row {
+            spacing: Style.space(8)
+            anchors.horizontalCenter: parent.horizontalCenter
+
+            Text {
+              text: "IPv4 :"
+              font.family: Style.font.family
+              font.pixelSize: 12
+              font.bold: true
+              color: Color.muted
+            }
+            Text {
+              text: root.ipv4
+              font.family: "monospace"
+              font.pixelSize: 12
+              font.bold: true
+              color: root.isConnected ? "#16D2B6" : Color.foreground
+            }
           }
-          Text {
-            text: root.publicIp
-            font.family: "monospace"
-            font.pixelSize: 13
-            font.bold: true
-            color: root.isConnected ? "#16D2B6" : Color.foreground
+
+          Row {
+            visible: root.ipv6 !== "—" && root.ipv6 !== ""
+            spacing: Style.space(8)
+            anchors.horizontalCenter: parent.horizontalCenter
+
+            Text {
+              text: "IPv6 :"
+              font.family: Style.font.family
+              font.pixelSize: 11
+              font.bold: true
+              color: Color.muted
+            }
+            Text {
+              text: root.ipv6
+              font.family: "monospace"
+              font.pixelSize: 11
+              font.bold: true
+              color: root.isConnected ? "#16D2B6" : Color.foreground
+            }
           }
         }
       }
@@ -422,6 +476,7 @@ BarWidget {
 
                 MouseArea {
                   anchors.fill: parent
+                  preventStealing: true
                   cursorShape: Qt.PointingHandCursor
                   onClicked: root.toggleFavorite(modelData.id)
                 }
@@ -500,6 +555,7 @@ BarWidget {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
+                preventStealing: true
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
@@ -547,6 +603,7 @@ BarWidget {
 
                 MouseArea {
                   anchors.fill: parent
+                  preventStealing: true
                   cursorShape: Qt.PointingHandCursor
                   onClicked: root.toggleFavorite(modelData.id)
                 }
@@ -625,6 +682,7 @@ BarWidget {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
+                preventStealing: true
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {

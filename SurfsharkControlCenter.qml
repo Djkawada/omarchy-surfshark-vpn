@@ -10,9 +10,9 @@ FloatingWindow {
   id: rootWindow
   title: "Surfshark VPN Manager"
   color: Color.background
-  implicitWidth: Style.space(980)
-  implicitHeight: Style.space(680)
-  minimumSize: Qt.size(Style.space(820), Style.space(560))
+  implicitWidth: Style.space(1020)
+  implicitHeight: Style.space(720)
+  minimumSize: Qt.size(Style.space(860), Style.space(600))
 
   property var pluginRoot: null
   signal closing()
@@ -30,6 +30,8 @@ FloatingWindow {
       rootWindow.closing()
     }
   }
+
+  property bool showPrivKey: false
 
   // Console Logs
   property var logEntries: []
@@ -172,13 +174,13 @@ FloatingWindow {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
 
-        // LEFT COLUMN: Controls & Profiles (48%)
+        // LEFT COLUMN: Controls & Profiles (46%)
         ScrollView {
           id: leftScroll
           anchors.top: parent.top
           anchors.bottom: parent.bottom
           anchors.left: parent.left
-          width: (parent.width - Style.space(16)) * 0.48
+          width: (parent.width - Style.space(16)) * 0.46
           clip: true
           ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
@@ -220,8 +222,8 @@ FloatingWindow {
                     Column {
                       anchors.centerIn: parent
                       spacing: 2
-                      Text { text: "IP Publique"; font.pixelSize: Style.font.caption - 2; color: Color.muted; anchors.horizontalCenter: parent.horizontalCenter }
-                      Text { text: rootWindow.pluginRoot ? rootWindow.pluginRoot.publicIp : "—"; font.pixelSize: Style.font.caption; font.bold: true; color: (rootWindow.pluginRoot && rootWindow.pluginRoot.isConnected) ? "#16D2B6" : Color.foreground; anchors.horizontalCenter: parent.horizontalCenter }
+                      Text { text: "IPv4 Publique"; font.pixelSize: Style.font.caption - 2; color: Color.muted; anchors.horizontalCenter: parent.horizontalCenter }
+                      Text { text: rootWindow.pluginRoot ? rootWindow.pluginRoot.ipv4 : "—"; font.pixelSize: Style.font.caption; font.bold: true; color: (rootWindow.pluginRoot && rootWindow.pluginRoot.isConnected) ? "#16D2B6" : Color.foreground; anchors.horizontalCenter: parent.horizontalCenter }
                     }
                   }
 
@@ -253,7 +255,10 @@ FloatingWindow {
                         rootWindow.pluginRoot.disconnectVPN()
                         rootWindow.addLog("Déconnexion demandée...", "info")
                       } else {
-                        if (rootWindow.pluginRoot.profileList.length > 0) {
+                        if (rootWindow.pluginRoot.favoriteList.length > 0) {
+                          rootWindow.pluginRoot.connectTo(rootWindow.pluginRoot.favoriteList[0].id)
+                          rootWindow.addLog("Connexion vers " + rootWindow.pluginRoot.favoriteList[0].country + "...", "info")
+                        } else if (rootWindow.pluginRoot.profileList.length > 0) {
                           rootWindow.pluginRoot.connectTo(rootWindow.pluginRoot.profileList[0].id)
                           rootWindow.addLog("Connexion vers " + rootWindow.pluginRoot.profileList[0].country + "...", "info")
                         }
@@ -283,7 +288,7 @@ FloatingWindow {
 
                 Row {
                   width: parent.width
-                  PanelSectionHeader { text: rootWindow.t("locations") + " (" + (rootWindow.pluginRoot ? rootWindow.pluginRoot.profileList.length : 0) + ")" }
+                  PanelSectionHeader { text: (rootWindow.currentLang === "fr" ? "Emplacements Serveurs" : (rootWindow.currentLang === "ja" ? "サーバーロケーション" : "Server Locations")) + " (" + (rootWindow.pluginRoot ? rootWindow.pluginRoot.profileList.length : 0) + ")" }
                   Item { width: Math.max(4, parent.width - parent.children[0].implicitWidth - openBtn.implicitWidth); height: 1 }
                   Button {
                     id: openBtn
@@ -357,7 +362,7 @@ FloatingWindow {
                       Text {
                         id: ccBadgeText
                         anchors.centerIn: parent
-                        text: ccCard.isActive ? "● CONNECTÉ" : "Connexion"
+                        text: ccCard.isActive ? "● CONNECTÉ" : (rootWindow.currentLang === "fr" ? "Connexion" : (rootWindow.currentLang === "ja" ? "接続" : "Connect"))
                         font.family: Style.font.family
                         font.pixelSize: 12
                         font.bold: true
@@ -409,43 +414,10 @@ FloatingWindow {
                             rootWindow.addLog("Déconnexion de " + modelData.country, "info")
                           } else {
                             rootWindow.pluginRoot.connectTo(modelData.id)
-                            rootWindow.addLog("Connexion à " + modelData.country + " (" + modelData.city + ")...", "ok")
+                            rootWindow.addLog("Connexion vers " + modelData.country + " (" + modelData.city + ")...", "ok")
                           }
                         }
                       }
-                    }
-                  }
-                }
-
-                // Empty state box
-                Rectangle {
-                  visible: !rootWindow.pluginRoot || rootWindow.pluginRoot.profileList.length === 0
-                  width: parent.width
-                  color: "#161d26"
-                  radius: 8
-                  border.color: "#2d3748"
-                  border.width: 1
-                  implicitHeight: emptyGuide.implicitHeight + Style.space(20)
-
-                  Column {
-                    id: emptyGuide
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.margins: Style.space(10)
-                    spacing: Style.space(8)
-
-                    Text { text: "Guide de configuration WireGuard :"; font.bold: true; color: "#16D2B6"; font.pixelSize: Style.font.caption }
-                    Text {
-                      text: "1. Connectez-vous sur surfshark.com (VPN > Manuel > WireGuard)\n2. Générez une clé WireGuard en 1 clic\n3. Téléchargez vos pays préférés (ex: fr-par.conf, jp-tok.conf)\n4. Glissez-déposez-les dans le dossier configs !"
-                      color: Color.muted
-                      font.pixelSize: Style.font.caption - 1
-                      lineHeight: 1.4
-                    }
-                    Button {
-                      width: parent.width
-                      text: "Ouvrir le dossier ~/.config/surfshark-vpn/configs/"
-                      onClicked: if (rootWindow.pluginRoot) rootWindow.pluginRoot.openFolder()
                     }
                   }
                 }
@@ -454,92 +426,322 @@ FloatingWindow {
           }
         }
 
-        // RIGHT COLUMN: Quick Guide & Real-Time Event Logs (52%)
-        Column {
+        // RIGHT COLUMN: WireGuard Key Configuration, 3-Lang Setup Guide & Event Logs (54%)
+        ScrollView {
+          id: rightScroll
           anchors.top: parent.top
           anchors.bottom: parent.bottom
           anchors.left: leftScroll.right
           anchors.leftMargin: Style.space(16)
           anchors.right: parent.right
-          spacing: Style.space(12)
+          clip: true
+          ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
-          // Performance & Security Notice Card
-          Rectangle {
-            width: parent.width
-            color: "#151b23"
-            radius: 8
-            border.color: "#2d3748"
-            border.width: 1
-            implicitHeight: noticeCol.implicitHeight + Style.space(24)
+          Column {
+            width: rightScroll.availableWidth
+            spacing: Style.space(12)
 
-            Column {
-              id: noticeCol
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.top: parent.top
-              anchors.margins: Style.space(12)
-              spacing: Style.space(8)
+            // --- 1. WireGuard Key Pair Manager Card ---
+            Rectangle {
+              width: parent.width
+              color: "#151b23"
+              radius: 8
+              border.color: "#2d3748"
+              border.width: 1
+              implicitHeight: keyCol.implicitHeight + Style.space(24)
 
-              PanelSectionHeader { text: rootWindow.currentLang === "fr" ? "Avantages WireGuard sous Omarchy" : (rootWindow.currentLang === "ja" ? "WireGuardのメリット" : "WireGuard Advantages") }
+              Column {
+                id: keyCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: Style.space(12)
+                spacing: Style.space(10)
 
-              Text {
-                text: rootWindow.currentLang === "fr" ? "⚡ Intégré au noyau Linux : Débit maximal, 0% CPU en veille.\n🔒 Cryptographie de pointe (ChaCha20, Poly1305, Curve25519).\n🌐 Roaming instantané : Aucune coupure en cas de changement de réseau.\n🚀 Zéro dépendance : Pas d'application Electron lourde en arrière-plan." : (rootWindow.currentLang === "ja" ? "⚡ Linuxカーネル直接統合：超高速・低遅延、待機時CPU使用率0%。\n🔒 最新の暗号化プロトコル (ChaCha20, Poly1305, Curve25519)。\n🌐 高速ローミング：ネットワーク切り替え時も切断なし。\n🚀 完全軽量：重いElectronアプリ不要。" : "⚡ Kernel-integrated: Maximum fiber speed, 0% idle CPU.\n🔒 Modern cryptography (ChaCha20, Poly1305, Curve25519).\n🌐 Seamless roaming: Instant reconnect when switching networks.\n🚀 Zero bloat: No heavy Electron background apps.")
-                font.family: Style.font.family
-                font.pixelSize: Style.font.caption - 1
-                color: Color.muted
-                lineHeight: 1.45
+                Row {
+                  width: parent.width
+                  PanelSectionHeader {
+                    text: rootWindow.currentLang === "fr" ? "🔑 Clés WireGuard Surfshark" : (rootWindow.currentLang === "ja" ? "🔑 Surfshark WireGuard 鍵設定" : "🔑 Surfshark WireGuard Key Pair")
+                  }
+                  Item { width: Math.max(4, parent.width - parent.children[0].implicitWidth - keyStatusBadge.implicitWidth); height: 1 }
+                  Rectangle {
+                    id: keyStatusBadge
+                    height: Style.space(22)
+                    radius: 4
+                    color: (privKeyField.text.length > 20) ? "#0d3a33" : "#2a1b1b"
+                    border.color: (privKeyField.text.length > 20) ? "#16D2B6" : "#e53e3e"
+                    border.width: 1
+                    width: keyStatusText.implicitWidth + Style.space(12)
+
+                    Text {
+                      id: keyStatusText
+                      anchors.centerIn: parent
+                      text: (privKeyField.text.length > 20) ? "✓ Clé Active" : "⚠ Clé Manquante"
+                      font.pixelSize: 11
+                      font.bold: true
+                      color: (privKeyField.text.length > 20) ? "#16D2B6" : "#fc8181"
+                    }
+                  }
+                }
+
+                // Public Key Field
+                Column {
+                  width: parent.width
+                  spacing: Style.space(4)
+
+                  Text {
+                    text: rootWindow.currentLang === "fr" ? "Clé Publique (Public Key) :" : (rootWindow.currentLang === "ja" ? "公開鍵 (Public Key) :" : "Public Key :")
+                    font.pixelSize: 12
+                    font.bold: true
+                    color: Color.muted
+                  }
+
+                  Rectangle {
+                    width: parent.width
+                    height: Style.space(36)
+                    color: "#0d1117"
+                    radius: 6
+                    border.color: pubKeyField.activeFocus ? "#16D2B6" : "#2d3748"
+                    border.width: 1
+
+                    TextInput {
+                      id: pubKeyField
+                      anchors.fill: parent
+                      anchors.margins: Style.space(8)
+                      font.family: "monospace"
+                      font.pixelSize: 12
+                      color: Color.foreground
+                      clip: true
+                      selectByMouse: true
+                      text: rootWindow.pluginRoot && rootWindow.pluginRoot.keys ? (rootWindow.pluginRoot.keys.public_key || "") : ""
+                    }
+                  }
+                }
+
+                // Private Key Field
+                Column {
+                  width: parent.width
+                  spacing: Style.space(4)
+
+                  Text {
+                    text: rootWindow.currentLang === "fr" ? "Clé Privée (Private Key) :" : (rootWindow.currentLang === "ja" ? "秘密鍵 (Private Key) :" : "Private Key :")
+                    font.pixelSize: 12
+                    font.bold: true
+                    color: Color.muted
+                  }
+
+                  Rectangle {
+                    width: parent.width
+                    height: Style.space(36)
+                    color: "#0d1117"
+                    radius: 6
+                    border.color: privKeyField.activeFocus ? "#16D2B6" : "#2d3748"
+                    border.width: 1
+
+                    Row {
+                      anchors.fill: parent
+                      anchors.margins: Style.space(6)
+                      spacing: Style.space(6)
+
+                      TextInput {
+                        id: privKeyField
+                        width: parent.width - eyeBtn.width - Style.space(8)
+                        height: parent.height
+                        font.family: "monospace"
+                        font.pixelSize: 12
+                        color: Color.foreground
+                        clip: true
+                        selectByMouse: true
+                        echoMode: rootWindow.showPrivKey ? TextInput.Normal : TextInput.Password
+                        text: rootWindow.pluginRoot && rootWindow.pluginRoot.keys ? (rootWindow.pluginRoot.keys.private_key || "") : ""
+                      }
+
+                      Button {
+                        id: eyeBtn
+                        text: rootWindow.showPrivKey ? "🙈" : "👁️"
+                        width: Style.space(32)
+                        height: parent.height
+                        onClicked: rootWindow.showPrivKey = !rootWindow.showPrivKey
+                      }
+                    }
+                  }
+                }
+
+                // Save & Apply Button
+                Button {
+                  width: parent.width
+                  height: Style.space(38)
+                  text: rootWindow.currentLang === "fr" ? "💾 Enregistrer les Clés & Appliquer aux Profils (.conf)" : (rootWindow.currentLang === "ja" ? "💾 鍵を保存してすべての設定ファイルに適用" : "💾 Save Keys & Apply to all Configs (.conf)")
+                  selected: true
+                  onClicked: {
+                    if (rootWindow.pluginRoot) {
+                      rootWindow.pluginRoot.saveKeys(pubKeyField.text, privKeyField.text)
+                      rootWindow.addLog(rootWindow.currentLang === "fr" ? "Clés enregistrées et injectées dans tous les profils .conf avec succès !" : (rootWindow.currentLang === "ja" ? "鍵が保存され、すべての.confファイルに適用されました！" : "Keys saved and applied to all .conf profiles successfully!"), "ok")
+                    }
+                  }
+                }
               }
             }
-          }
 
-          // Live Event & Diagnostic Log Monitor
-          Rectangle {
-            width: parent.width
-            height: parent.height - noticeCol.implicitHeight - Style.space(24) - Style.space(12)
-            color: "#151b23"
-            radius: 8
-            border.color: "#2d3748"
-            border.width: 1
-            clip: true
+            // --- 2. Step-by-Step 3-Language Visual Guide ---
+            Rectangle {
+              width: parent.width
+              color: "#151b23"
+              radius: 8
+              border.color: "#2d3748"
+              border.width: 1
+              implicitHeight: guideCol.implicitHeight + Style.space(24)
 
-            Column {
-              anchors.fill: parent
-              anchors.margins: Style.space(12)
-              spacing: Style.space(8)
-
-              Item {
-                width: parent.width
-                height: Style.space(24)
+              Column {
+                id: guideCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: Style.space(12)
+                spacing: Style.space(10)
 
                 PanelSectionHeader {
-                  anchors.left: parent.left
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: rootWindow.currentLang === "fr" ? "Journal des Événements & Trames WireGuard" : (rootWindow.currentLang === "ja" ? "イベント＆WireGuardログ" : "WireGuard Event & Packet Logs")
+                  text: rootWindow.currentLang === "fr" ? "📘 Guide de Configuration en 4 Étapes" : (rootWindow.currentLang === "ja" ? "📘 4ステップ簡単設定ガイド" : "📘 4-Step Easy Setup Guide")
                 }
 
-                Button {
-                  anchors.right: parent.right
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: rootWindow.currentLang === "fr" ? "Effacer" : (rootWindow.currentLang === "ja" ? "消去" : "Clear")
-                  width: Style.space(60)
-                  height: Style.space(24)
-                  onClicked: rootWindow.logEntries = []
+                Column {
+                  width: parent.width
+                  spacing: Style.space(6)
+
+                  // Step 1
+                  Row {
+                    width: parent.width
+                    spacing: Style.space(8)
+                    Text { text: "1️⃣"; font.pixelSize: 14 }
+                    Text {
+                      width: parent.width - Style.space(32)
+                      text: rootWindow.currentLang === "fr" ? "Connectez-vous sur votre compte Surfshark (VPN > Configuration manuelle > WireGuard)." : (rootWindow.currentLang === "ja" ? "Surfshark Webサイト (VPN > 手動設定 > WireGuard) にアクセスします。" : "Log in to your Surfshark account (VPN > Manual setup > WireGuard).")
+                      font.family: Style.font.family
+                      font.pixelSize: Style.font.caption - 1
+                      color: Color.foreground
+                      wrapMode: Text.WordWrap
+                    }
+                  }
+
+                  // Step 2
+                  Row {
+                    width: parent.width
+                    spacing: Style.space(8)
+                    Text { text: "2️⃣"; font.pixelSize: 14 }
+                    Text {
+                      width: parent.width - Style.space(32)
+                      text: rootWindow.currentLang === "fr" ? "Cliquez sur « J'ai déjà une paire de clés » ou générez une nouvelle paire de clés WireGuard." : (rootWindow.currentLang === "ja" ? "「鍵ペアを持っています」を選択するか、新しいWireGuard鍵ペアを生成します。" : "Click “I already have a key pair” or generate a new WireGuard key pair.")
+                      font.family: Style.font.family
+                      font.pixelSize: Style.font.caption - 1
+                      color: Color.foreground
+                      wrapMode: Text.WordWrap
+                    }
+                  }
+
+                  // Step 3
+                  Row {
+                    width: parent.width
+                    spacing: Style.space(8)
+                    Text { text: "3️⃣"; font.pixelSize: 14 }
+                    Text {
+                      width: parent.width - Style.space(32)
+                      text: rootWindow.currentLang === "fr" ? "Collez votre Clé Publique et Clé Privée dans les champs ci-dessus et cliquez sur Enregistrer." : (rootWindow.currentLang === "ja" ? "上記の入力欄に公開鍵と秘密鍵を貼り付け、「保存して適用」をクリックします。" : "Paste your Public Key & Private Key in the fields above and click Save.")
+                      font.family: Style.font.family
+                      font.pixelSize: Style.font.caption - 1
+                      color: Color.foreground
+                      wrapMode: Text.WordWrap
+                    }
+                  }
+
+                  // Step 4
+                  Row {
+                    width: parent.width
+                    spacing: Style.space(8)
+                    Text { text: "4️⃣"; font.pixelSize: 14 }
+                    Text {
+                      width: parent.width - Style.space(32)
+                      text: rootWindow.currentLang === "fr" ? "Téléchargez les fichiers .conf de vos pays favoris et glissez-les dans le dossier configs !" : (rootWindow.currentLang === "ja" ? "接続したい国の設定ファイル (.conf) をダウンロードし、configsフォルダに配置します。" : "Download the .conf files for your favorite locations and drop them into the configs folder!")
+                      font.family: Style.font.family
+                      font.pixelSize: Style.font.caption - 1
+                      color: Color.foreground
+                      wrapMode: Text.WordWrap
+                    }
+                  }
+                }
+
+                Row {
+                  width: parent.width
+                  spacing: Style.space(8)
+
+                  Button {
+                    width: (parent.width - Style.space(8)) / 2
+                    height: Style.space(34)
+                    text: rootWindow.currentLang === "fr" ? "🌐 Ouvrir Surfshark.com ↗" : (rootWindow.currentLang === "ja" ? "🌐 Surfsharkを開く ↗" : "🌐 Open Surfshark.com ↗")
+                    onClicked: {
+                      Quickshell.execDetached(["xdg-open", "https://my.surfshark.com/vpn/manual-setup/main/wireguard"])
+                      rootWindow.addLog("Ouverture du portail WireGuard Surfshark...", "info")
+                    }
+                  }
+
+                  Button {
+                    width: (parent.width - Style.space(8)) / 2
+                    height: Style.space(34)
+                    text: rootWindow.currentLang === "fr" ? "📁 Ouvrir Dossier Configs" : (rootWindow.currentLang === "ja" ? "📁 configsフォルダを開く" : "📁 Open Configs Folder")
+                    onClicked: if (rootWindow.pluginRoot) rootWindow.pluginRoot.openFolder()
+                  }
                 }
               }
+            }
 
-              ListView {
-                width: parent.width
-                height: parent.height - Style.space(34)
-                clip: true
-                model: rootWindow.logEntries
+            // --- 3. Live Event & Diagnostic Log Monitor ---
+            Rectangle {
+              width: parent.width
+              height: Style.space(160)
+              color: "#151b23"
+              radius: 8
+              border.color: "#2d3748"
+              border.width: 1
+              clip: true
 
-                delegate: Text {
+              Column {
+                anchors.fill: parent
+                anchors.margins: Style.space(12)
+                spacing: Style.space(8)
+
+                Item {
                   width: parent.width
-                  text: modelData.text
-                  font.family: "monospace"
-                  font.pixelSize: 10
-                  color: modelData.type === "ok" ? "#16D2B6" : (modelData.type === "err" ? "#ff4444" : Color.muted)
-                  wrapMode: Text.Wrap
+                  height: Style.space(24)
+
+                  PanelSectionHeader {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: rootWindow.currentLang === "fr" ? "Journal des Événements WireGuard" : (rootWindow.currentLang === "ja" ? "WireGuard イベントログ" : "WireGuard Event Log")
+                  }
+
+                  Button {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: rootWindow.currentLang === "fr" ? "Effacer" : (rootWindow.currentLang === "ja" ? "消去" : "Clear")
+                    width: Style.space(60)
+                    height: Style.space(22)
+                    onClicked: rootWindow.logEntries = []
+                  }
+                }
+
+                ListView {
+                  width: parent.width
+                  height: parent.height - Style.space(34)
+                  clip: true
+                  model: rootWindow.logEntries
+
+                  delegate: Text {
+                    width: parent.width
+                    text: modelData.text
+                    font.family: "monospace"
+                    font.pixelSize: 10
+                    color: modelData.type === "ok" ? "#16D2B6" : (modelData.type === "err" ? "#ff4444" : Color.muted)
+                    wrapMode: Text.Wrap
+                  }
                 }
               }
             }

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "com.github.djkawada.surfshark-vpn",
+  "name": "Surfshark VPN",
+  "version": "1.0.0",
+  "author": "Pierre (Djkawada)",
+  "license": "MIT",
+  "description": "Fast, native, zero-bloat WireGuard VPN manager for Surfshark on Omarchy Linux.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Surfshark VPN",
+    "description": "Native WireGuard status, quick connect, location switcher, and public IP monitor.",
+    "category": "Network",
+    "allowMultiple": false
+  }
+}

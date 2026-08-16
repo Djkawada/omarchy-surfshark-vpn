@@ -30,19 +30,18 @@ BarWidget {
       "disconnected": "Déconnecté",
       "connecting": "Connexion en cours...",
       "disconnecting": "Déconnexion...",
-      "btn_connect": "Connexion Rapide",
-      "btn_disconnect": "Déconnecter le VPN",
+      "btn_connect": "⚡ Connexion Rapide",
+      "btn_disconnect": "🔴 Déconnecter le VPN",
       "favorites": "Serveurs Favoris ⭐",
       "all_locations": "Tous les Emplacements",
-      "click_to_connect": "Cliquer pour connecter",
+      "connect_action": "Connexion",
       "active_badge": "CONNECTÉ",
       "no_profiles": "Aucun profil WireGuard (.conf) trouvé",
       "setup_hint": "Téléchargez vos fichiers .conf sur surfshark.com (VPN > Manuel > WireGuard) et placez-les dans ~/.config/surfshark-vpn/configs/",
       "open_folder": "Ouvrir dossier configs 📁",
       "open_control_center": "Ouvrir Surfshark Manager ↗",
       "public_ip": "IP Publique : ",
-      "lang_label": "Langue",
-      "quick_connect": "Connexion Rapide"
+      "lang_label": "Langue"
     },
     "ja": {
       "app_title": "Surfshark VPN",
@@ -50,19 +49,18 @@ BarWidget {
       "disconnected": "未接続",
       "connecting": "接続処理中...",
       "disconnecting": "切断処理中...",
-      "btn_connect": "クイック接続",
-      "btn_disconnect": "VPNを切断する",
+      "btn_connect": "⚡ クイック接続",
+      "btn_disconnect": "🔴 VPNを切断する",
       "favorites": "お気に入りサーバー ⭐",
       "all_locations": "すべてのロケーション",
-      "click_to_connect": "クリックして接続",
+      "connect_action": "接続",
       "active_badge": "接続中",
       "no_profiles": "WireGuard設定ファイル (.conf) がありません",
       "setup_hint": "surfshark.com (VPN > 手動設定 > WireGuard) から .conf ファイルをダウンロードし、~/.config/surfshark-vpn/configs/ に配置してください。",
       "open_folder": "設定フォルダを開く 📁",
       "open_control_center": "Surfshark マネージャーを開く ↗",
       "public_ip": "パブリックIP : ",
-      "lang_label": "言語 (Language)",
-      "quick_connect": "クイック接続"
+      "lang_label": "言語 (Language)"
     },
     "en": {
       "app_title": "Surfshark VPN",
@@ -70,19 +68,18 @@ BarWidget {
       "disconnected": "Disconnected",
       "connecting": "Connecting...",
       "disconnecting": "Disconnecting...",
-      "btn_connect": "Quick Connect",
-      "btn_disconnect": "Disconnect VPN",
+      "btn_connect": "⚡ Quick Connect",
+      "btn_disconnect": "🔴 Disconnect VPN",
       "favorites": "Favorite Servers ⭐",
       "all_locations": "All Locations",
-      "click_to_connect": "Click to connect",
+      "connect_action": "Connect",
       "active_badge": "CONNECTED",
       "no_profiles": "No WireGuard (.conf) profiles found",
       "setup_hint": "Download your .conf files from surfshark.com (VPN > Manual > WireGuard) and place them in ~/.config/surfshark-vpn/configs/",
       "open_folder": "Open configs folder 📁",
       "open_control_center": "Open Surfshark Manager ↗",
       "public_ip": "Public IP: ",
-      "lang_label": "Language",
-      "quick_connect": "Quick Connect"
+      "lang_label": "Language"
     }
   })
 
@@ -264,44 +261,49 @@ BarWidget {
     bar: root.bar
     owner: root
     open: root.panelOpen
-    contentWidth: popupPanel.fittedContentWidth(Style.space(380))
-    contentHeight: popupPanel.fittedContentHeight(Math.min(Style.space(560), contentColumn.implicitHeight))
+    contentWidth: popupPanel.fittedContentWidth(Style.space(430))
+    contentHeight: popupPanel.fittedContentHeight(Math.min(Style.space(600), contentColumn.implicitHeight))
 
     Column {
       id: contentColumn
       anchors.fill: parent
-      spacing: Style.space(10)
+      spacing: Style.space(12)
 
       // Header
-      Row {
-        spacing: Style.space(10)
+      Item {
         width: parent.width
+        height: Style.space(38)
 
-        Image {
-          source: root.isConnected ? Qt.resolvedUrl("assets/surfshark-active.svg") : Qt.resolvedUrl("assets/surfshark-inactive.svg")
-          sourceSize.width: Style.space(28)
-          sourceSize.height: Style.space(28)
+        Row {
+          anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-        }
+          spacing: Style.space(10)
 
-        Column {
-          spacing: Style.space(2)
-          anchors.verticalCenter: parent.verticalCenter
-          width: parent.width - Style.space(38)
-
-          Text {
-            text: root.t("app_title")
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
-            font.bold: true
-            color: Color.foreground
+          Image {
+            source: root.isConnected ? Qt.resolvedUrl("assets/surfshark-active.svg") : Qt.resolvedUrl("assets/surfshark-inactive.svg")
+            sourceSize.width: Style.space(30)
+            sourceSize.height: Style.space(30)
+            anchors.verticalCenter: parent.verticalCenter
           }
 
-          Text {
-            text: root.isConnected ? (root.t("connected") + " • " + (root.activeProfile ? root.activeProfile.display_name : "WireGuard")) : root.t("disconnected")
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-            color: root.isConnected ? "#16D2B6" : Color.muted
+          Column {
+            spacing: Style.space(2)
+            anchors.verticalCenter: parent.verticalCenter
+
+            Text {
+              text: root.t("app_title")
+              font.family: Style.font.family
+              font.pixelSize: 15
+              font.bold: true
+              color: Color.foreground
+            }
+
+            Text {
+              text: root.isConnected ? (root.t("connected") + " • " + (root.activeProfile ? root.activeProfile.display_name : "WireGuard")) : root.t("disconnected")
+              font.family: Style.font.family
+              font.pixelSize: 12
+              color: root.isConnected ? "#16D2B6" : Color.muted
+            }
           }
         }
       }
@@ -309,7 +311,7 @@ BarWidget {
       // Public IP Pill
       Rectangle {
         width: parent.width
-        height: Style.space(30)
+        height: Style.space(32)
         color: root.isConnected ? "#0d2b27" : "#1a202c"
         radius: 6
         border.color: root.isConnected ? "#16D2B6" : "#2d3748"
@@ -317,18 +319,18 @@ BarWidget {
 
         Row {
           anchors.centerIn: parent
-          spacing: Style.space(6)
+          spacing: Style.space(8)
 
           Text {
-            text: "IP :"
+            text: root.t("public_ip")
             font.family: Style.font.family
-            font.pixelSize: Style.font.caption
+            font.pixelSize: 13
             color: Color.muted
           }
           Text {
             text: root.publicIp
             font.family: "monospace"
-            font.pixelSize: Style.font.caption
+            font.pixelSize: 13
             font.bold: true
             color: root.isConnected ? "#16D2B6" : Color.foreground
           }
@@ -338,8 +340,8 @@ BarWidget {
       // Main Action Quick Connect / Disconnect Button
       Button {
         width: parent.width
-        height: Style.space(38)
-        text: root.isConnected ? ("🔴 " + root.t("btn_disconnect")) : ("⚡ " + root.t("btn_connect"))
+        height: Style.space(40)
+        text: root.isConnected ? root.t("btn_disconnect") : root.t("btn_connect")
         selected: root.isConnected
         onClicked: {
           if (root.isConnected) {
@@ -358,14 +360,15 @@ BarWidget {
 
       // Scrollable Profiles & Favorites Section
       ScrollView {
+        id: serverScrollView
         width: parent.width
-        height: Style.space(250)
+        height: Style.space(260)
         clip: true
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
         Column {
-          width: parent.width
-          spacing: Style.space(6)
+          width: serverScrollView.availableWidth
+          spacing: Style.space(8)
 
           // --- FAVORITES SECTION ---
           PanelSectionHeader {
@@ -379,8 +382,8 @@ BarWidget {
             Rectangle {
               id: favCard
               width: parent.width
-              height: Style.space(40)
-              radius: 6
+              height: Style.space(46)
+              radius: 8
               readonly property bool isActive: root.isConnected && root.activeProfile && root.activeProfile.id === modelData.id
               color: isActive ? "#0e342f" : (favMouse.containsMouse ? "#202b38" : "#161d26")
               border.color: isActive ? "#16D2B6" : (favMouse.containsMouse ? "#3b4a5d" : "#242f3d")
@@ -389,14 +392,14 @@ BarWidget {
               // Star Button Area on Left
               Item {
                 id: favStarArea
-                width: Style.space(32)
+                width: Style.space(36)
                 height: parent.height
                 anchors.left: parent.left
 
                 Text {
                   anchors.centerIn: parent
                   text: "⭐"
-                  font.pixelSize: 14
+                  font.pixelSize: 16
                 }
 
                 MouseArea {
@@ -406,10 +409,76 @@ BarWidget {
                 }
               }
 
-              // Clickable Server Card (Middle + Right)
+              // Flag Item
+              Item {
+                id: favFlagArea
+                width: Style.space(26)
+                height: parent.height
+                anchors.left: favStarArea.right
+
+                Text {
+                  anchors.centerIn: parent
+                  text: modelData.flag || "🌐"
+                  font.pixelSize: 18
+                }
+              }
+
+              // Status Badge on Right
+              Rectangle {
+                id: favBadge
+                anchors.right: parent.right
+                anchors.rightMargin: Style.space(10)
+                anchors.verticalCenter: parent.verticalCenter
+                height: Style.space(26)
+                radius: 6
+                color: favCard.isActive ? "#0d3a33" : (favMouse.containsMouse ? "#1e3a4a" : "transparent")
+                border.color: favCard.isActive ? "#16D2B6" : (favMouse.containsMouse ? "#16D2B6" : "#2d3748")
+                border.width: 1
+                width: favBadgeText.implicitWidth + Style.space(16)
+
+                Text {
+                  id: favBadgeText
+                  anchors.centerIn: parent
+                  text: favCard.isActive ? ("● " + root.t("active_badge")) : root.t("connect_action")
+                  font.family: Style.font.family
+                  font.pixelSize: 12
+                  font.bold: true
+                  color: favCard.isActive ? "#16D2B6" : (favMouse.containsMouse ? "#ffffff" : Color.muted)
+                }
+              }
+
+              // Country + City in Center
+              Column {
+                anchors.left: favFlagArea.right
+                anchors.leftMargin: Style.space(8)
+                anchors.right: favBadge.left
+                anchors.rightMargin: Style.space(10)
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Style.space(2)
+
+                Text {
+                  text: modelData.country
+                  font.family: Style.font.family
+                  font.pixelSize: 14
+                  font.bold: true
+                  color: favCard.isActive ? "#16D2B6" : Color.foreground
+                  elide: Text.ElideRight
+                  width: parent.width
+                }
+                Text {
+                  text: modelData.city
+                  font.family: Style.font.family
+                  font.pixelSize: 12
+                  color: Color.muted
+                  elide: Text.ElideRight
+                  width: parent.width
+                }
+              }
+
+              // Clickable Area
               MouseArea {
                 id: favMouse
-                anchors.left: favStarArea.right
+                anchors.left: favFlagArea.left
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
@@ -420,67 +489,6 @@ BarWidget {
                     root.disconnectVPN()
                   } else {
                     root.connectTo(modelData.id)
-                  }
-                }
-
-                Row {
-                  anchors.fill: parent
-                  anchors.rightMargin: Style.space(8)
-                  spacing: Style.space(8)
-
-                  Text {
-                    text: modelData.flag || "🌐"
-                    font.pixelSize: 16
-                    anchors.verticalCenter: parent.verticalCenter
-                  }
-
-                  Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 1
-                    width: parent.width - Style.space(130)
-
-                    Text {
-                      text: modelData.country
-                      font.family: Style.font.family
-                      font.pixelSize: Style.font.body - 1
-                      font.bold: true
-                      color: favCard.isActive ? "#16D2B6" : Color.foreground
-                      elide: Text.ElideRight
-                    }
-                    Text {
-                      text: modelData.city
-                      font.family: Style.font.family
-                      font.pixelSize: Style.font.caption - 1
-                      color: Color.muted
-                      elide: Text.ElideRight
-                    }
-                  }
-
-                  Item {
-                    width: Math.max(2, parent.width - parent.children[0].implicitWidth - parent.children[1].implicitWidth - favBadge.implicitWidth - Style.space(16))
-                    height: 1
-                  }
-
-                  // Status Badge or Connect Hint
-                  Rectangle {
-                    id: favBadge
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: Style.space(22)
-                    radius: 4
-                    color: favCard.isActive ? "#0d3a33" : (favMouse.containsMouse ? "#1e3a4a" : "transparent")
-                    border.color: favCard.isActive ? "#16D2B6" : (favMouse.containsMouse ? "#16D2B6" : "#2d3748")
-                    border.width: 1
-                    width: favBadgeText.implicitWidth + Style.space(12)
-
-                    Text {
-                      id: favBadgeText
-                      anchors.centerIn: parent
-                      text: favCard.isActive ? ("● " + root.t("active_badge")) : "Connecter"
-                      font.family: Style.font.family
-                      font.pixelSize: Style.font.caption - 2
-                      font.bold: true
-                      color: favCard.isActive ? "#16D2B6" : (favMouse.containsMouse ? "#ffffff" : Color.muted)
-                    }
                   }
                 }
               }
@@ -498,8 +506,8 @@ BarWidget {
             Rectangle {
               id: allCard
               width: parent.width
-              height: Style.space(40)
-              radius: 6
+              height: Style.space(46)
+              radius: 8
               readonly property bool isActive: root.isConnected && root.activeProfile && root.activeProfile.id === modelData.id
               color: isActive ? "#0e342f" : (allMouse.containsMouse ? "#1a232e" : "#12171f")
               border.color: isActive ? "#16D2B6" : (allMouse.containsMouse ? "#323f50" : "#1f2733")
@@ -508,14 +516,14 @@ BarWidget {
               // Star Button Area on Left
               Item {
                 id: allStarArea
-                width: Style.space(32)
+                width: Style.space(36)
                 height: parent.height
                 anchors.left: parent.left
 
                 Text {
                   anchors.centerIn: parent
                   text: modelData.is_favorite ? "⭐" : "☆"
-                  font.pixelSize: 14
+                  font.pixelSize: 16
                   color: modelData.is_favorite ? "#ffd700" : Color.muted
                 }
 
@@ -526,10 +534,76 @@ BarWidget {
                 }
               }
 
-              // Clickable Server Card (Middle + Right)
+              // Flag Item
+              Item {
+                id: allFlagArea
+                width: Style.space(26)
+                height: parent.height
+                anchors.left: allStarArea.right
+
+                Text {
+                  anchors.centerIn: parent
+                  text: modelData.flag || "🌐"
+                  font.pixelSize: 18
+                }
+              }
+
+              // Status Badge on Right
+              Rectangle {
+                id: allBadge
+                anchors.right: parent.right
+                anchors.rightMargin: Style.space(10)
+                anchors.verticalCenter: parent.verticalCenter
+                height: Style.space(26)
+                radius: 6
+                color: allCard.isActive ? "#0d3a33" : (allMouse.containsMouse ? "#1e3a4a" : "transparent")
+                border.color: allCard.isActive ? "#16D2B6" : (allMouse.containsMouse ? "#16D2B6" : "#2d3748")
+                border.width: 1
+                width: allBadgeText.implicitWidth + Style.space(16)
+
+                Text {
+                  id: allBadgeText
+                  anchors.centerIn: parent
+                  text: allCard.isActive ? ("● " + root.t("active_badge")) : root.t("connect_action")
+                  font.family: Style.font.family
+                  font.pixelSize: 12
+                  font.bold: true
+                  color: allCard.isActive ? "#16D2B6" : (allMouse.containsMouse ? "#ffffff" : Color.muted)
+                }
+              }
+
+              // Country + City in Center
+              Column {
+                anchors.left: allFlagArea.right
+                anchors.leftMargin: Style.space(8)
+                anchors.right: allBadge.left
+                anchors.rightMargin: Style.space(10)
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Style.space(2)
+
+                Text {
+                  text: modelData.country
+                  font.family: Style.font.family
+                  font.pixelSize: 14
+                  font.bold: true
+                  color: allCard.isActive ? "#16D2B6" : Color.foreground
+                  elide: Text.ElideRight
+                  width: parent.width
+                }
+                Text {
+                  text: modelData.city
+                  font.family: Style.font.family
+                  font.pixelSize: 12
+                  color: Color.muted
+                  elide: Text.ElideRight
+                  width: parent.width
+                }
+              }
+
+              // Clickable Area
               MouseArea {
                 id: allMouse
-                anchors.left: allStarArea.right
+                anchors.left: allFlagArea.left
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
@@ -540,67 +614,6 @@ BarWidget {
                     root.disconnectVPN()
                   } else {
                     root.connectTo(modelData.id)
-                  }
-                }
-
-                Row {
-                  anchors.fill: parent
-                  anchors.rightMargin: Style.space(8)
-                  spacing: Style.space(8)
-
-                  Text {
-                    text: modelData.flag || "🌐"
-                    font.pixelSize: 16
-                    anchors.verticalCenter: parent.verticalCenter
-                  }
-
-                  Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 1
-                    width: parent.width - Style.space(130)
-
-                    Text {
-                      text: modelData.country
-                      font.family: Style.font.family
-                      font.pixelSize: Style.font.body - 1
-                      font.bold: true
-                      color: allCard.isActive ? "#16D2B6" : Color.foreground
-                      elide: Text.ElideRight
-                    }
-                    Text {
-                      text: modelData.city
-                      font.family: Style.font.family
-                      font.pixelSize: Style.font.caption - 1
-                      color: Color.muted
-                      elide: Text.ElideRight
-                    }
-                  }
-
-                  Item {
-                    width: Math.max(2, parent.width - parent.children[0].implicitWidth - parent.children[1].implicitWidth - allBadge.implicitWidth - Style.space(16))
-                    height: 1
-                  }
-
-                  // Status Badge or Connect Hint
-                  Rectangle {
-                    id: allBadge
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: Style.space(22)
-                    radius: 4
-                    color: allCard.isActive ? "#0d3a33" : (allMouse.containsMouse ? "#1e3a4a" : "transparent")
-                    border.color: allCard.isActive ? "#16D2B6" : (allMouse.containsMouse ? "#16D2B6" : "#2d3748")
-                    border.width: 1
-                    width: allBadgeText.implicitWidth + Style.space(12)
-
-                    Text {
-                      id: allBadgeText
-                      anchors.centerIn: parent
-                      text: allCard.isActive ? ("● " + root.t("active_badge")) : "Connecter"
-                      font.family: Style.font.family
-                      font.pixelSize: Style.font.caption - 2
-                      font.bold: true
-                      color: allCard.isActive ? "#16D2B6" : (allMouse.containsMouse ? "#ffffff" : Color.muted)
-                    }
                   }
                 }
               }
@@ -628,7 +641,7 @@ BarWidget {
               Text {
                 text: root.t("no_profiles")
                 font.family: Style.font.family
-                font.pixelSize: Style.font.caption
+                font.pixelSize: 14
                 font.bold: true
                 color: "#e2e8f0"
               }
@@ -636,7 +649,7 @@ BarWidget {
               Text {
                 text: root.t("setup_hint")
                 font.family: Style.font.family
-                font.pixelSize: Style.font.caption - 1
+                font.pixelSize: 12
                 color: Color.muted
                 wrapMode: Text.WordWrap
                 width: parent.width
@@ -661,7 +674,7 @@ BarWidget {
         Text {
           text: root.t("lang_label")
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: 12
           color: Color.muted
           anchors.verticalCenter: parent.verticalCenter
         }

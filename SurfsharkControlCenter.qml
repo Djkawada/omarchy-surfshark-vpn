@@ -299,8 +299,8 @@ FloatingWindow {
                   Rectangle {
                     id: ccCard
                     width: parent.width
-                    height: Style.space(42)
-                    radius: 6
+                    height: Style.space(46)
+                    radius: 8
                     readonly property bool isActive: rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id
                     color: isActive ? "#0e342f" : (ccMouse.containsMouse ? "#1a232e" : "#12171f")
                     border.color: isActive ? "#16D2B6" : (ccMouse.containsMouse ? "#323f50" : "#1f2733")
@@ -309,14 +309,14 @@ FloatingWindow {
                     // Star Button Area on Left
                     Item {
                       id: ccStarArea
-                      width: Style.space(34)
+                      width: Style.space(36)
                       height: parent.height
                       anchors.left: parent.left
 
                       Text {
                         anchors.centerIn: parent
                         text: modelData.is_favorite ? "⭐" : "☆"
-                        font.pixelSize: 14
+                        font.pixelSize: 16
                         color: modelData.is_favorite ? "#ffd700" : Color.muted
                       }
 
@@ -327,10 +327,76 @@ FloatingWindow {
                       }
                     }
 
-                    // Clickable Server Card (Middle + Right)
+                    // Flag Item
+                    Item {
+                      id: ccFlagArea
+                      width: Style.space(26)
+                      height: parent.height
+                      anchors.left: ccStarArea.right
+
+                      Text {
+                        anchors.centerIn: parent
+                        text: modelData.flag || "🌐"
+                        font.pixelSize: 18
+                      }
+                    }
+
+                    // Status Badge on Right
+                    Rectangle {
+                      id: ccBadge
+                      anchors.right: parent.right
+                      anchors.rightMargin: Style.space(10)
+                      anchors.verticalCenter: parent.verticalCenter
+                      height: Style.space(26)
+                      radius: 6
+                      color: ccCard.isActive ? "#0d3a33" : (ccMouse.containsMouse ? "#1e3a4a" : "transparent")
+                      border.color: ccCard.isActive ? "#16D2B6" : (ccMouse.containsMouse ? "#16D2B6" : "#2d3748")
+                      border.width: 1
+                      width: ccBadgeText.implicitWidth + Style.space(16)
+
+                      Text {
+                        id: ccBadgeText
+                        anchors.centerIn: parent
+                        text: ccCard.isActive ? "● CONNECTÉ" : "Connexion"
+                        font.family: Style.font.family
+                        font.pixelSize: 12
+                        font.bold: true
+                        color: ccCard.isActive ? "#16D2B6" : (ccMouse.containsMouse ? "#ffffff" : Color.muted)
+                      }
+                    }
+
+                    // Country + City in Center
+                    Column {
+                      anchors.left: ccFlagArea.right
+                      anchors.leftMargin: Style.space(8)
+                      anchors.right: ccBadge.left
+                      anchors.rightMargin: Style.space(10)
+                      anchors.verticalCenter: parent.verticalCenter
+                      spacing: Style.space(2)
+
+                      Text {
+                        text: modelData.country
+                        font.family: Style.font.family
+                        font.pixelSize: 14
+                        font.bold: true
+                        color: ccCard.isActive ? "#16D2B6" : Color.foreground
+                        elide: Text.ElideRight
+                        width: parent.width
+                      }
+                      Text {
+                        text: modelData.city
+                        font.family: Style.font.family
+                        font.pixelSize: 12
+                        color: Color.muted
+                        elide: Text.ElideRight
+                        width: parent.width
+                      }
+                    }
+
+                    // Clickable Area
                     MouseArea {
                       id: ccMouse
-                      anchors.left: ccStarArea.right
+                      anchors.left: ccFlagArea.left
                       anchors.right: parent.right
                       anchors.top: parent.top
                       anchors.bottom: parent.bottom
@@ -344,67 +410,6 @@ FloatingWindow {
                           } else {
                             rootWindow.pluginRoot.connectTo(modelData.id)
                             rootWindow.addLog("Connexion à " + modelData.country + " (" + modelData.city + ")...", "ok")
-                          }
-                        }
-                      }
-
-                      Row {
-                        anchors.fill: parent
-                        anchors.rightMargin: Style.space(8)
-                        spacing: Style.space(8)
-
-                        Text {
-                          text: modelData.flag || "🌐"
-                          font.pixelSize: 16
-                          anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Column {
-                          anchors.verticalCenter: parent.verticalCenter
-                          spacing: 1
-                          width: parent.width - Style.space(130)
-
-                          Text {
-                            text: modelData.country
-                            font.family: Style.font.family
-                            font.pixelSize: Style.font.body - 1
-                            font.bold: true
-                            color: ccCard.isActive ? "#16D2B6" : Color.foreground
-                            elide: Text.ElideRight
-                          }
-                          Text {
-                            text: modelData.city
-                            font.family: Style.font.family
-                            font.pixelSize: Style.font.caption - 1
-                            color: Color.muted
-                            elide: Text.ElideRight
-                          }
-                        }
-
-                        Item {
-                          width: Math.max(2, parent.width - parent.children[0].implicitWidth - parent.children[1].implicitWidth - ccBadge.implicitWidth - Style.space(16))
-                          height: 1
-                        }
-
-                        // Status Badge or Connect Hint
-                        Rectangle {
-                          id: ccBadge
-                          anchors.verticalCenter: parent.verticalCenter
-                          height: Style.space(22)
-                          radius: 4
-                          color: ccCard.isActive ? "#0d3a33" : (ccMouse.containsMouse ? "#1e3a4a" : "transparent")
-                          border.color: ccCard.isActive ? "#16D2B6" : (ccMouse.containsMouse ? "#16D2B6" : "#2d3748")
-                          border.width: 1
-                          width: ccBadgeText.implicitWidth + Style.space(12)
-
-                          Text {
-                            id: ccBadgeText
-                            anchors.centerIn: parent
-                            text: ccCard.isActive ? "● CONNECTÉ" : "Connecter"
-                            font.family: Style.font.family
-                            font.pixelSize: Style.font.caption - 2
-                            font.bold: true
-                            color: ccCard.isActive ? "#16D2B6" : (ccMouse.containsMouse ? "#ffffff" : Color.muted)
                           }
                         }
                       }

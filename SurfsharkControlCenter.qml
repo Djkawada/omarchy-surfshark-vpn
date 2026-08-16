@@ -297,56 +297,114 @@ FloatingWindow {
                   model: rootWindow.pluginRoot ? rootWindow.pluginRoot.profileList : []
 
                   Rectangle {
+                    id: ccCard
                     width: parent.width
-                    height: Style.space(38)
-                    color: (rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id) ? "#0e342f" : "#101315"
+                    height: Style.space(42)
                     radius: 6
-                    border.color: (rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id) ? "#16D2B6" : "#283446"
+                    readonly property bool isActive: rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id
+                    color: isActive ? "#0e342f" : (ccMouse.containsMouse ? "#1a232e" : "#12171f")
+                    border.color: isActive ? "#16D2B6" : (ccMouse.containsMouse ? "#323f50" : "#1f2733")
                     border.width: 1
 
-                    Row {
-                      anchors.fill: parent
-                      anchors.margins: Style.space(8)
-                      spacing: Style.space(8)
-
-                      Text { text: modelData.flag || "🌐"; font.pixelSize: 14; anchors.verticalCenter: parent.verticalCenter }
-                      Text {
-                        text: modelData.country + " (" + modelData.city + ")"
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.caption
-                        font.bold: true
-                        color: (rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id) ? "#16D2B6" : Color.foreground
-                        anchors.verticalCenter: parent.verticalCenter
-                      }
-                      Item { width: Math.max(4, parent.width - parent.children[0].implicitWidth - parent.children[1].implicitWidth - starAction.implicitWidth - connBtn.implicitWidth - Style.space(24)); height: 1 }
+                    // Star Button Area on Left
+                    Item {
+                      id: ccStarArea
+                      width: Style.space(34)
+                      height: parent.height
+                      anchors.left: parent.left
 
                       Text {
-                        id: starAction
+                        anchors.centerIn: parent
                         text: modelData.is_favorite ? "⭐" : "☆"
-                        font.pixelSize: 13
+                        font.pixelSize: 14
                         color: modelData.is_favorite ? "#ffd700" : Color.muted
-                        anchors.verticalCenter: parent.verticalCenter
-                        MouseArea {
-                          anchors.fill: parent
-                          cursorShape: Qt.PointingHandCursor
-                          onClicked: if (rootWindow.pluginRoot) rootWindow.pluginRoot.toggleFavorite(modelData.id)
+                      }
+
+                      MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: if (rootWindow.pluginRoot) rootWindow.pluginRoot.toggleFavorite(modelData.id)
+                      }
+                    }
+
+                    // Clickable Server Card (Middle + Right)
+                    MouseArea {
+                      id: ccMouse
+                      anchors.left: ccStarArea.right
+                      anchors.right: parent.right
+                      anchors.top: parent.top
+                      anchors.bottom: parent.bottom
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: {
+                        if (rootWindow.pluginRoot) {
+                          if (ccCard.isActive) {
+                            rootWindow.pluginRoot.disconnectVPN()
+                            rootWindow.addLog("Déconnexion de " + modelData.country, "info")
+                          } else {
+                            rootWindow.pluginRoot.connectTo(modelData.id)
+                            rootWindow.addLog("Connexion à " + modelData.country + " (" + modelData.city + ")...", "ok")
+                          }
                         }
                       }
 
-                      Button {
-                        id: connBtn
-                        text: (rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id) ? "CONNECTÉ" : "Connecter"
-                        selected: (rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id)
-                        height: Style.space(24)
-                        onClicked: {
-                          if (rootWindow.pluginRoot) {
-                            if (rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id) {
-                              rootWindow.pluginRoot.disconnectVPN()
-                              rootWindow.addLog("Déconnexion de " + modelData.country, "info")
-                            } else {
-                              rootWindow.pluginRoot.connectTo(modelData.id)
-                              rootWindow.addLog("Connexion à " + modelData.country + " (" + modelData.city + ")...", "ok")
-                            }
+                      Row {
+                        anchors.fill: parent
+                        anchors.rightMargin: Style.space(8)
+                        spacing: Style.space(8)
+
+                        Text {
+                          text: modelData.flag || "🌐"
+                          font.pixelSize: 16
+                          anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Column {
+                          anchors.verticalCenter: parent.verticalCenter
+                          spacing: 1
+                          width: parent.width - Style.space(130)
+
+                          Text {
+                            text: modelData.country
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.body - 1
+                            font.bold: true
+                            color: ccCard.isActive ? "#16D2B6" : Color.foreground
+                            elide: Text.ElideRight
+                          }
+                          Text {
+                            text: modelData.city
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.caption - 1
+                            color: Color.muted
+                            elide: Text.ElideRight
+                          }
+                        }
+
+                        Item {
+                          width: Math.max(2, parent.width - parent.children[0].implicitWidth - parent.children[1].implicitWidth - ccBadge.implicitWidth - Style.space(16))
+                          height: 1
+                        }
+
+                        // Status Badge or Connect Hint
+                        Rectangle {
+                          id: ccBadge
+                          anchors.verticalCenter: parent.verticalCenter
+                          height: Style.space(22)
+                          radius: 4
+                          color: ccCard.isActive ? "#0d3a33" : (ccMouse.containsMouse ? "#1e3a4a" : "transparent")
+                          border.color: ccCard.isActive ? "#16D2B6" : (ccMouse.containsMouse ? "#16D2B6" : "#2d3748")
+                          border.width: 1
+                          width: ccBadgeText.implicitWidth + Style.space(12)
+
+                          Text {
+                            id: ccBadgeText
+                            anchors.centerIn: parent
+                            text: ccCard.isActive ? "● CONNECTÉ" : "Connecter"
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.caption - 2
+                            font.bold: true
+                            color: ccCard.isActive ? "#16D2B6" : (ccMouse.containsMouse ? "#ffffff" : Color.muted)
                           }
                         }
                       }

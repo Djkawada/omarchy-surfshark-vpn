@@ -304,22 +304,6 @@ FloatingWindow {
                     border.color: (rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id) ? "#16D2B6" : "#283446"
                     border.width: 1
 
-                    MouseArea {
-                      anchors.fill: parent
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: {
-                        if (rootWindow.pluginRoot) {
-                          if (rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id) {
-                            rootWindow.pluginRoot.disconnectVPN()
-                            rootWindow.addLog("Déconnexion de " + modelData.country, "info")
-                          } else {
-                            rootWindow.pluginRoot.connectTo(modelData.id)
-                            rootWindow.addLog("Connexion à " + modelData.country + " (" + modelData.city + ")...", "ok")
-                          }
-                        }
-                      }
-                    }
-
                     Row {
                       anchors.fill: parent
                       anchors.margins: Style.space(8)
@@ -334,15 +318,37 @@ FloatingWindow {
                         color: (rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id) ? "#16D2B6" : Color.foreground
                         anchors.verticalCenter: parent.verticalCenter
                       }
-                      Item { width: Math.max(4, parent.width - parent.children[0].implicitWidth - parent.children[1].implicitWidth - connStatusTag.implicitWidth - Style.space(24)); height: 1 }
+                      Item { width: Math.max(4, parent.width - parent.children[0].implicitWidth - parent.children[1].implicitWidth - starAction.implicitWidth - connBtn.implicitWidth - Style.space(24)); height: 1 }
+
                       Text {
-                        id: connStatusTag
-                        text: (rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id) ? "CONNECTÉ" : "Connecter"
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.caption - 2
-                        font.bold: true
-                        color: (rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id) ? "#16D2B6" : Color.muted
+                        id: starAction
+                        text: modelData.is_favorite ? "⭐" : "☆"
+                        font.pixelSize: 13
+                        color: modelData.is_favorite ? "#ffd700" : Color.muted
                         anchors.verticalCenter: parent.verticalCenter
+                        MouseArea {
+                          anchors.fill: parent
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: if (rootWindow.pluginRoot) rootWindow.pluginRoot.toggleFavorite(modelData.id)
+                        }
+                      }
+
+                      Button {
+                        id: connBtn
+                        text: (rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id) ? "CONNECTÉ" : "Connecter"
+                        selected: (rootWindow.pluginRoot && rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id)
+                        height: Style.space(24)
+                        onClicked: {
+                          if (rootWindow.pluginRoot) {
+                            if (rootWindow.pluginRoot.activeProfile && rootWindow.pluginRoot.activeProfile.id === modelData.id) {
+                              rootWindow.pluginRoot.disconnectVPN()
+                              rootWindow.addLog("Déconnexion de " + modelData.country, "info")
+                            } else {
+                              rootWindow.pluginRoot.connectTo(modelData.id)
+                              rootWindow.addLog("Connexion à " + modelData.country + " (" + modelData.city + ")...", "ok")
+                            }
+                          }
+                        }
                       }
                     }
                   }

@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import qs.Ui
@@ -31,7 +32,8 @@ BarWidget {
       "disconnecting": "Déconnexion...",
       "btn_connect": "Se connecter",
       "btn_disconnect": "Déconnecter",
-      "locations": "Emplacements & Serveurs",
+      "favorites": "Serveurs Favoris ⭐",
+      "all_locations": "Tous les Emplacements",
       "no_profiles": "Aucun profil WireGuard (.conf) trouvé",
       "setup_hint": "Téléchargez vos fichiers .conf sur surfshark.com (VPN > Manuel > WireGuard) et placez-les dans ~/.config/surfshark-vpn/configs/",
       "open_folder": "Ouvrir dossier configs 📁",
@@ -48,7 +50,8 @@ BarWidget {
       "disconnecting": "切断処理中...",
       "btn_connect": "接続する",
       "btn_disconnect": "切断する",
-      "locations": "ロケーション＆サーバー",
+      "favorites": "お気に入りサーバー ⭐",
+      "all_locations": "すべてのロケーション",
       "no_profiles": "WireGuard設定ファイル (.conf) がありません",
       "setup_hint": "surfshark.com (VPN > 手動設定 > WireGuard) から .conf ファイルをダウンロードし、~/.config/surfshark-vpn/configs/ に配置してください。",
       "open_folder": "設定フォルダを開く 📁",
@@ -65,7 +68,8 @@ BarWidget {
       "disconnecting": "Disconnecting...",
       "btn_connect": "Connect",
       "btn_disconnect": "Disconnect",
-      "locations": "Locations & Servers",
+      "favorites": "Favorite Servers ⭐",
+      "all_locations": "All Locations",
       "no_profiles": "No WireGuard (.conf) profiles found",
       "setup_hint": "Download your .conf files from surfshark.com (VPN > Manual > WireGuard) and place them in ~/.config/surfshark-vpn/configs/",
       "open_folder": "Open configs folder 📁",
@@ -85,9 +89,15 @@ BarWidget {
   property string publicIp: "—"
   property var activeProfile: null
   property var profileList: []
+  property var favoriteList: []
   property string configDir: ""
   property bool panelOpen: false
   property bool controlCenterOpen: false
+
+  // Dismiss handler for PopupCard FocusGrab
+  function close() {
+    root.panelOpen = false
+  }
 
   function refresh() {
     if (!statusProc.running) statusProc.running = true
@@ -101,6 +111,11 @@ BarWidget {
   function disconnectVPN() {
     disconnectProc.command = [root.ctlPath, "disconnect"]
     disconnectProc.running = true
+  }
+
+  function toggleFavorite(profileId) {
+    toggleFavProc.command = [root.ctlPath, "toggle-favorite", profileId]
+    toggleFavProc.running = true
   }
 
   function setLanguage(l) {
@@ -143,6 +158,7 @@ BarWidget {
           root.publicIp = data.public_ip || "—"
           root.activeProfile = data.active_profile || null
           root.profileList = data.profiles || []
+          root.favoriteList = data.favorites || []
           root.configDir = data.config_dir || ""
           if (data.lang) root.manualLang = data.lang
         } catch (e) {}
@@ -160,6 +176,14 @@ BarWidget {
 
   Process {
     id: disconnectProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.refresh()
+    }
+  }
+
+  Process {
+    id: toggleFavProc
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.refresh()
@@ -222,6 +246,7 @@ BarWidget {
         root.openControlCenter()
       } else {
         root.panelOpen = !root.panelOpen
+        if (root.panelOpen) root.refresh()
       }
     }
   }
@@ -233,13 +258,13 @@ BarWidget {
     bar: root.bar
     owner: root
     open: root.panelOpen
-    contentWidth: popupPanel.fittedContentWidth(Style.space(340))
-    contentHeight: popupPanel.fittedContentHeight(contentColumn.implicitHeight)
+    contentWidth: popupPanel.fittedContentWidth(Style.space(350))
+    contentHeight: popupPanel.fittedContentHeight(Math.min(Style.space(520), contentColumn.implicitHeight))
 
     Column {
       id: contentColumn
       anchors.fill: parent
-      spacing: Style.space(12)
+      spacing: Style.space(10)
 
       // Header
       Row {
@@ -278,7 +303,7 @@ BarWidget {
       // Public IP Pill
       Rectangle {
         width: parent.width
-        height: Style.space(30)
+        height: Style.space(28)
         color: root.isConnected ? "#0d2b27" : "#1a202c"
         radius: 6
         border.color: root.isConnected ? "#16D2B6" : "#2d3748"
@@ -307,17 +332,17 @@ BarWidget {
       // Main Action Toggle Button
       Button {
         width: parent.width
-        height: Style.space(38)
+        height: Style.space(36)
         text: root.isConnected ? ("🔴 " + root.t("btn_disconnect")) : ("⚡ " + root.t("btn_connect"))
         selected: root.isConnected
         onClicked: {
           if (root.isConnected) {
             root.disconnectVPN()
           } else {
-            if (root.profileList.length > 0) {
+            if (root.favoriteList.length > 0) {
+              root.connectTo(root.favoriteList[0].id)
+            } else if (root.profileList.length > 0) {
               root.connectTo(root.profileList[0].id)
-            } else {
-              root.refresh()
             }
           }
         }
@@ -325,113 +350,200 @@ BarWidget {
 
       PanelSeparator {}
 
-      // Location / Server List Header
-      PanelSectionHeader {
-        text: root.t("locations") + " (" + root.profileList.length + ")"
-      }
-
-      // Profile List or Setup Guide
-      Column {
+      // Scrollable Profiles & Favorites Section
+      ScrollView {
         width: parent.width
-        spacing: Style.space(6)
+        height: Style.space(200)
+        clip: true
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
-        Repeater {
-          model: root.profileList.slice(0, 6)
+        Column {
+          width: parent.width
+          spacing: Style.space(6)
 
-          Rectangle {
-            width: parent.width
-            height: Style.space(36)
-            color: (root.activeProfile && root.activeProfile.id === modelData.id) ? "#0e342f" : "#181f2a"
-            radius: 6
-            border.color: (root.activeProfile && root.activeProfile.id === modelData.id) ? "#16D2B6" : "#283446"
-            border.width: 1
+          // --- FAVORITES SECTION ---
+          PanelSectionHeader {
+            visible: root.favoriteList.length > 0
+            text: root.t("favorites") + " (" + root.favoriteList.length + ")"
+          }
 
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                if (root.activeProfile && root.activeProfile.id === modelData.id) {
-                  root.disconnectVPN()
-                } else {
-                  root.connectTo(modelData.id)
+          Repeater {
+            model: root.favoriteList
+
+            Rectangle {
+              width: parent.width
+              height: Style.space(34)
+              color: (root.activeProfile && root.activeProfile.id === modelData.id) ? "#0e342f" : "#19222c"
+              radius: 6
+              border.color: (root.activeProfile && root.activeProfile.id === modelData.id) ? "#16D2B6" : "#2d3748"
+              border.width: 1
+
+              Row {
+                anchors.fill: parent
+                anchors.margins: Style.space(6)
+                spacing: Style.space(6)
+
+                Text {
+                  text: modelData.flag || "🌐"
+                  font.pixelSize: 14
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Text {
+                  text: modelData.country + " (" + modelData.city + ")"
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                  color: (root.activeProfile && root.activeProfile.id === modelData.id) ? "#16D2B6" : Color.foreground
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Item { width: Math.max(4, parent.width - parent.children[0].implicitWidth - parent.children[1].implicitWidth - starBtn.implicitWidth - actionBtn.implicitWidth - Style.space(18)); height: 1 }
+
+                // Star Toggle Button
+                Text {
+                  id: starBtn
+                  text: "⭐"
+                  font.pixelSize: 13
+                  anchors.verticalCenter: parent.verticalCenter
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.toggleFavorite(modelData.id)
+                  }
+                }
+
+                Button {
+                  id: actionBtn
+                  text: (root.activeProfile && root.activeProfile.id === modelData.id) ? "ON" : "GO"
+                  selected: (root.activeProfile && root.activeProfile.id === modelData.id)
+                  height: Style.space(22)
+                  width: Style.space(36)
+                  anchors.verticalCenter: parent.verticalCenter
+                  onClicked: {
+                    if (root.activeProfile && root.activeProfile.id === modelData.id) {
+                      root.disconnectVPN()
+                    } else {
+                      root.connectTo(modelData.id)
+                    }
+                  }
                 }
               }
             }
+          }
 
-            Row {
-              anchors.fill: parent
-              anchors.margins: Style.space(8)
-              spacing: Style.space(8)
+          // --- ALL LOCATIONS SECTION ---
+          PanelSectionHeader {
+            text: root.t("all_locations") + " (" + root.profileList.length + ")"
+          }
 
-              Text {
-                text: modelData.flag || "🌐"
-                font.pixelSize: 14
-                anchors.verticalCenter: parent.verticalCenter
-              }
+          Repeater {
+            model: root.profileList
 
-              Text {
-                text: modelData.country + " (" + modelData.city + ")"
-                font.family: Style.font.family
-                font.pixelSize: Style.font.caption
-                font.bold: (root.activeProfile && root.activeProfile.id === modelData.id)
-                color: (root.activeProfile && root.activeProfile.id === modelData.id) ? "#16D2B6" : Color.foreground
-                anchors.verticalCenter: parent.verticalCenter
-              }
+            Rectangle {
+              width: parent.width
+              height: Style.space(34)
+              color: (root.activeProfile && root.activeProfile.id === modelData.id) ? "#0e342f" : "#131820"
+              radius: 6
+              border.color: (root.activeProfile && root.activeProfile.id === modelData.id) ? "#16D2B6" : "#242d38"
+              border.width: 1
 
-              Item { width: Math.max(4, parent.width - parent.children[0].implicitWidth - parent.children[1].implicitWidth - statusDot.implicitWidth - Style.space(24)); height: 1 }
+              Row {
+                anchors.fill: parent
+                anchors.margins: Style.space(6)
+                spacing: Style.space(6)
 
-              Rectangle {
-                id: statusDot
-                width: Style.space(8)
-                height: Style.space(8)
-                radius: Style.space(4)
-                color: (root.activeProfile && root.activeProfile.id === modelData.id) ? "#16D2B6" : "#3b4758"
-                anchors.verticalCenter: parent.verticalCenter
+                Text {
+                  text: modelData.flag || "🌐"
+                  font.pixelSize: 14
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Text {
+                  text: modelData.country + " (" + modelData.city + ")"
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  font.bold: (root.activeProfile && root.activeProfile.id === modelData.id)
+                  color: (root.activeProfile && root.activeProfile.id === modelData.id) ? "#16D2B6" : Color.foreground
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Item { width: Math.max(4, parent.width - parent.children[0].implicitWidth - parent.children[1].implicitWidth - allStarBtn.implicitWidth - allActionBtn.implicitWidth - Style.space(18)); height: 1 }
+
+                // Star Toggle Button
+                Text {
+                  id: allStarBtn
+                  text: modelData.is_favorite ? "⭐" : "☆"
+                  font.pixelSize: 13
+                  color: modelData.is_favorite ? "#ffd700" : Color.muted
+                  anchors.verticalCenter: parent.verticalCenter
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.toggleFavorite(modelData.id)
+                  }
+                }
+
+                Button {
+                  id: allActionBtn
+                  text: (root.activeProfile && root.activeProfile.id === modelData.id) ? "ON" : "GO"
+                  selected: (root.activeProfile && root.activeProfile.id === modelData.id)
+                  height: Style.space(22)
+                  width: Style.space(36)
+                  anchors.verticalCenter: parent.verticalCenter
+                  onClicked: {
+                    if (root.activeProfile && root.activeProfile.id === modelData.id) {
+                      root.disconnectVPN()
+                    } else {
+                      root.connectTo(modelData.id)
+                    }
+                  }
+                }
               }
             }
           }
-        }
 
-        // Empty state guide
-        Rectangle {
-          visible: root.profileList.length === 0
-          width: parent.width
-          color: "#161d26"
-          radius: 8
-          border.color: "#2d3748"
-          border.width: 1
-          implicitHeight: emptyCol.implicitHeight + Style.space(20)
+          // Empty state guide
+          Rectangle {
+            visible: root.profileList.length === 0
+            width: parent.width
+            color: "#161d26"
+            radius: 8
+            border.color: "#2d3748"
+            border.width: 1
+            implicitHeight: emptyCol.implicitHeight + Style.space(20)
 
-          Column {
-            id: emptyCol
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: Style.space(10)
-            spacing: Style.space(8)
+            Column {
+              id: emptyCol
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.top: parent.top
+              anchors.margins: Style.space(10)
+              spacing: Style.space(8)
 
-            Text {
-              text: root.t("no_profiles")
-              font.family: Style.font.family
-              font.pixelSize: Style.font.caption
-              font.bold: true
-              color: "#e2e8f0"
-            }
+              Text {
+                text: root.t("no_profiles")
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+                font.bold: true
+                color: "#e2e8f0"
+              }
 
-            Text {
-              text: root.t("setup_hint")
-              font.family: Style.font.family
-              font.pixelSize: Style.font.caption - 1
-              color: Color.muted
-              wrapMode: Text.WordWrap
-              width: parent.width
-              lineHeight: 1.35
-            }
+              Text {
+                text: root.t("setup_hint")
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption - 1
+                color: Color.muted
+                wrapMode: Text.WordWrap
+                width: parent.width
+                lineHeight: 1.35
+              }
 
-            Button {
-              width: parent.width
-              text: root.t("open_folder")
-              onClicked: root.openFolder()
+              Button {
+                width: parent.width
+                text: root.t("open_folder")
+                onClicked: root.openFolder()
+              }
             }
           }
         }

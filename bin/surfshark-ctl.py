@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Surfshark Native WireGuard & NetworkManager Controller for Omarchy Linux.
-Provides zero-bloat VPN management, live IP/status monitoring, and multi-location switching.
+Provides zero-bloat VPN management, favorites system, live IP monitoring, and location switching.
 """
 
 import sys
@@ -65,7 +65,7 @@ def load_state():
                 return json.load(f)
         except Exception:
             pass
-    return {"lang": "en", "last_profile": None, "last_ip": "—", "last_ip_check": 0}
+    return {"lang": "en", "last_profile": None, "last_ip": "—", "last_ip_check": 0, "favorites": ["fr-par", "jp-tok"]}
 
 def save_state(state):
     ensure_dirs()
@@ -75,7 +75,9 @@ def save_state(state):
     except Exception:
         pass
 
-def parse_profile_name(filename):
+def parse_profile_name(filename, favorites=None):
+    if favorites is None:
+        favorites = []
     base = os.path.basename(filename)
     name = os.path.splitext(base)[0].lower()
     # Normalize (e.g. surfshark_fr-par or fr-par_wireguard)
@@ -89,6 +91,8 @@ def parse_profile_name(filename):
             info = {"country": c_code.upper(), "city": parts[1].capitalize(), "flag": "🌐"}
         else:
             info = {"country": name.capitalize(), "city": "VPN Server", "flag": "🔒"}
+    
+    is_fav = (key in favorites) or (name in favorites)
     return {
         "id": name,
         "key": key,
@@ -96,21 +100,22 @@ def parse_profile_name(filename):
         "country": info["country"],
         "city": info["city"],
         "flag": info["flag"],
+        "is_favorite": is_fav,
         "display_name": f"{info['flag']} {info['country']} - {info['city']}"
     }
 
-def get_installed_profiles():
+def get_installed_profiles(favorites=None):
     ensure_dirs()
     confs = glob.glob(os.path.join(PROFILES_DIR, "*.conf"))
-    profiles = [parse_profile_name(c) for c in confs]
-    profiles.sort(key=lambda p: (p["country"], p["city"]))
+    profiles = [parse_profile_name(c, favorites) for c in confs]
+    profiles.sort(key=lambda p: (not p["is_favorite"], p["country"], p["city"]))
     return profiles
 
 def get_active_connection():
     # 1. Check nmcli active connections
     try:
         res = subprocess.run(["nmcli", "-t", "-f", "NAME,TYPE,DEVICE", "con", "show", "--active"],
-                             capture_output=True, text=True, timeout=2)
+                             capture_output=True, text=True, timeout=1.5)
         if res.returncode == 0:
             for line in res.stdout.strip().split("\n"):
                 if not line:
@@ -125,7 +130,7 @@ def get_active_connection():
 
     # 2. Check wg show
     try:
-        res = subprocess.run(["wg", "show", "interfaces"], capture_output=True, text=True, timeout=2)
+        res = subprocess.run(["wg", "show", "interfaces"], capture_output=True, text=True, timeout=1.5)
         if res.returncode == 0 and res.stdout.strip():
             ifaces = res.stdout.strip().split()
             if ifaces:
@@ -144,7 +149,7 @@ def fetch_public_ip():
     for u in urls:
         try:
             req = urllib.request.Request(u, headers={"User-Agent": "Omarchy-Surfshark-Plugin/1.0"})
-            with urllib.request.urlopen(req, timeout=3) as resp:
+            with urllib.request.urlopen(req, timeout=2.5) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 ip = data.get("ip", data.get("ipAddress", None))
                 if ip:
@@ -159,12 +164,13 @@ def cmd_status():
     state = load_state()
     active_conn = get_active_connection()
     is_connected = active_conn is not None
-    profiles = get_installed_profiles()
+    favs = state.get("favorites", ["fr-par", "jp-tok"])
+    profiles = get_installed_profiles(favs)
 
     active_profile_info = None
     if is_connected and active_conn:
         cname = active_conn["name"].replace("surfshark-", "").replace("surfshark_", "")
-        active_profile_info = parse_profile_name(cname)
+        active_profile_info = parse_profile_name(cname, favs)
 
     # Check IP if connected or if last check is older than 60s
     now = time.time()
@@ -174,6 +180,8 @@ def cmd_status():
         state["last_ip_check"] = now
         save_state(state)
 
+    fav_profiles = [p for p in profiles if p["is_favorite"]]
+
     result = {
         "connected": is_connected,
         "active_connection": active_conn,
@@ -181,10 +189,25 @@ def cmd_status():
         "public_ip": state.get("last_ip", "—"),
         "profiles_count": len(profiles),
         "profiles": profiles,
+        "favorites": fav_profiles,
         "config_dir": PROFILES_DIR,
         "lang": state.get("lang", "en")
     }
     print(json.dumps(result))
+
+def cmd_toggle_favorite(profile_id):
+    state = load_state()
+    favs = state.get("favorites", ["fr-par", "jp-tok"])
+    key = profile_id.replace("surfshark-", "").replace("surfshark_", "")
+    if key in favs:
+        favs.remove(key)
+    elif profile_id in favs:
+        favs.remove(profile_id)
+    else:
+        favs.append(key)
+    state["favorites"] = favs
+    save_state(state)
+    print(json.dumps({"success": True, "favorites": favs}))
 
 def cmd_connect(profile_name):
     ensure_dirs()
@@ -193,7 +216,6 @@ def cmd_connect(profile_name):
     # Locate .conf
     conf_path = os.path.join(PROFILES_DIR, f"{profile_name}.conf")
     if not os.path.exists(conf_path):
-        # Search by base name
         matches = glob.glob(os.path.join(PROFILES_DIR, f"*{profile_name}*.conf"))
         if matches:
             conf_path = matches[0]
@@ -213,26 +235,24 @@ def cmd_connect(profile_name):
                                   capture_output=True, text=True)
         if show_res.returncode != 0:
             # Import wireguard profile
-            import_res = subprocess.run(["nmcli", "connection", "import", "type", "wireguard", "file", conf_path],
-                                        capture_output=True, text=True)
-            if import_res.returncode != 0:
-                pass
+            subprocess.run(["nmcli", "connection", "import", "type", "wireguard", "file", conf_path],
+                           capture_output=True, text=True)
 
         # Bring connection UP
         up_res = subprocess.run(["nmcli", "connection", "up", conn_name],
-                                capture_output=True, text=True, timeout=10)
+                                capture_output=True, text=True, timeout=8)
         if up_res.returncode == 0:
             state["last_profile"] = profile_name
-            state["last_ip_check"] = 0  # Force IP refresh
+            state["last_ip_check"] = 0
             save_state(state)
             print(json.dumps({"success": True, "connected": True, "profile": profile_name}))
             return
-    except Exception as e:
+    except Exception:
         pass
 
     # 2. Fallback to wg-quick if available
     try:
-        res = subprocess.run(["wg-quick", "up", conf_path], capture_output=True, text=True, timeout=10)
+        res = subprocess.run(["wg-quick", "up", conf_path], capture_output=True, text=True, timeout=8)
         if res.returncode == 0:
             state["last_profile"] = profile_name
             state["last_ip_check"] = 0
@@ -266,35 +286,19 @@ def cmd_set_lang(l):
     save_state(state)
     print(json.dumps({"success": True, "lang": l}))
 
-def cmd_create_samples():
-    ensure_dirs()
-    readme_file = os.path.join(PROFILES_DIR, "README_SETUP.txt")
-    if not os.path.exists(readme_file):
-        with open(readme_file, "w") as f:
-            f.write("""Surfshark WireGuard Configuration Setup
-=======================================
-1. Log in to your Surfshark account at https://surfshark.com
-2. Go to: VPN -> Manual setup -> WireGuard
-3. Click "I don't have a key pair" -> Generate a new key pair.
-4. Select your preferred locations (e.g., France - Paris, Japan - Tokyo, USA, etc.)
-5. Download the .conf files and place them into this folder:
-   ~/.config/surfshark-vpn/configs/
-
-The Omarchy Surfshark VPN plugin will automatically detect them instantly!
-""")
-
 def main():
-    cmd_create_samples()
     if len(sys.argv) < 2 or sys.argv[1] == "status":
         cmd_status()
     elif sys.argv[1] == "connect" and len(sys.argv) > 2:
         cmd_connect(sys.argv[2])
     elif sys.argv[1] == "disconnect":
         cmd_disconnect()
+    elif sys.argv[1] == "toggle-favorite" and len(sys.argv) > 2:
+        cmd_toggle_favorite(sys.argv[2])
     elif sys.argv[1] == "set-lang" and len(sys.argv) > 2:
         cmd_set_lang(sys.argv[2])
     else:
-        print("Usage: surfshark-ctl.py [status|connect <profile>|disconnect|set-lang <fr/en/ja>]")
+        print("Usage: surfshark-ctl.py [status|connect <profile>|disconnect|toggle-favorite <profile_id>|set-lang <fr/en/ja>]")
 
 if __name__ == "__main__":
     main()

@@ -97,6 +97,9 @@ BarWidget {
   property bool panelOpen: false
   property bool controlCenterOpen: false
 
+  property bool isConnecting: false
+  property string pendingProfileId: ""
+
   // Dismiss handler for PopupCard FocusGrab
   function close() {
     root.panelOpen = false
@@ -107,23 +110,30 @@ BarWidget {
   }
 
   function connectTo(profileId) {
+    root.isConnecting = true
+    root.pendingProfileId = profileId
+    if (connectProc.running) connectProc.running = false
     connectProc.command = [root.ctlPath, "connect", profileId]
     connectProc.running = true
   }
 
   function disconnectVPN() {
     root.isConnected = false
+    root.isConnecting = false
+    if (disconnectProc.running) disconnectProc.running = false
     disconnectProc.command = [root.ctlPath, "disconnect"]
     disconnectProc.running = true
   }
 
   function toggleFavorite(profileId) {
+    if (toggleFavProc.running) toggleFavProc.running = false
     toggleFavProc.command = [root.ctlPath, "toggle-favorite", profileId]
     toggleFavProc.running = true
   }
 
   function setLanguage(l) {
     root.manualLang = l
+    if (setLangProc.running) setLangProc.running = false
     setLangProc.command = [root.ctlPath, "set-lang", l]
     setLangProc.running = true
   }
@@ -174,7 +184,11 @@ BarWidget {
     id: connectProc
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: root.refresh()
+      onStreamFinished: {
+        root.isConnecting = false
+        root.pendingProfileId = ""
+        root.refresh()
+      }
     }
   }
 
@@ -182,7 +196,10 @@ BarWidget {
     id: disconnectProc
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: root.refresh()
+      onStreamFinished: {
+        root.isConnecting = false
+        root.refresh()
+      }
     }
   }
 
@@ -342,8 +359,8 @@ BarWidget {
       Button {
         width: parent.width
         height: Style.space(40)
-        text: root.isConnected ? root.t("btn_disconnect") : root.t("btn_connect")
-        selected: root.isConnected
+        text: root.isConnecting ? ("⏳ " + root.t("connecting")) : (root.isConnected ? root.t("btn_disconnect") : root.t("btn_connect"))
+        selected: root.isConnected || root.isConnecting
         onClicked: {
           if (root.isConnected) {
             root.disconnectVPN()
@@ -440,11 +457,11 @@ BarWidget {
                 Text {
                   id: favBadgeText
                   anchors.centerIn: parent
-                  text: favCard.isActive ? ("● " + root.t("active_badge")) : root.t("connect_action")
+                  text: favCard.isActive ? ("● " + root.t("active_badge")) : ((root.isConnecting && root.pendingProfileId === modelData.id) ? ("⏳ " + root.t("connecting")) : root.t("connect_action"))
                   font.family: Style.font.family
                   font.pixelSize: 12
                   font.bold: true
-                  color: favCard.isActive ? "#16D2B6" : (favMouse.containsMouse ? "#ffffff" : Color.muted)
+                  color: favCard.isActive ? "#16D2B6" : ((root.isConnecting && root.pendingProfileId === modelData.id) ? "#ffd700" : (favMouse.containsMouse ? "#ffffff" : Color.muted))
                 }
               }
 
@@ -565,11 +582,11 @@ BarWidget {
                 Text {
                   id: allBadgeText
                   anchors.centerIn: parent
-                  text: allCard.isActive ? ("● " + root.t("active_badge")) : root.t("connect_action")
+                  text: allCard.isActive ? ("● " + root.t("active_badge")) : ((root.isConnecting && root.pendingProfileId === modelData.id) ? ("⏳ " + root.t("connecting")) : root.t("connect_action"))
                   font.family: Style.font.family
                   font.pixelSize: 12
                   font.bold: true
-                  color: allCard.isActive ? "#16D2B6" : (allMouse.containsMouse ? "#ffffff" : Color.muted)
+                  color: allCard.isActive ? "#16D2B6" : ((root.isConnecting && root.pendingProfileId === modelData.id) ? "#ffd700" : (allMouse.containsMouse ? "#ffffff" : Color.muted))
                 }
               }
 

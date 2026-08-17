@@ -441,7 +441,7 @@ FloatingWindow {
             width: rightScroll.availableWidth
             spacing: Style.space(12)
 
-            // --- 1. WireGuard Key Pair Manager Card ---
+            // --- 1. WireGuard Key Pair Manager Card (CORRIGÉ) ---
             Rectangle {
               width: parent.width
               color: "#151b23"
@@ -468,18 +468,21 @@ FloatingWindow {
                     id: keyStatusBadge
                     height: Style.space(22)
                     radius: 4
-                    color: (privKeyField.text.length > 20) ? "#0d3a33" : "#2a1b1b"
-                    border.color: (privKeyField.text.length > 20) ? "#16D2B6" : "#e53e3e"
+                    // CORRIGÉ : utilise has_private_key au lieu du contenu du champ
+                    color: (rootWindow.pluginRoot && rootWindow.pluginRoot.keys && rootWindow.pluginRoot.keys.has_private_key) ? "#0d3a33" : "#2a1b1b"
+                    border.color: (rootWindow.pluginRoot && rootWindow.pluginRoot.keys && rootWindow.pluginRoot.keys.has_private_key) ? "#16D2B6" : "#e53e3e"
                     border.width: 1
                     width: keyStatusText.implicitWidth + Style.space(12)
 
                     Text {
                       id: keyStatusText
                       anchors.centerIn: parent
-                      text: (privKeyField.text.length > 20) ? "✓ Clé Active" : "⚠ Clé Manquante"
+                      text: (rootWindow.pluginRoot && rootWindow.pluginRoot.keys && rootWindow.pluginRoot.keys.has_private_key)
+                            ? (rootWindow.currentLang === "fr" ? "✓ Clé Active" : (rootWindow.currentLang === "ja" ? "✓ 鍵設定済み" : "✓ Key Active"))
+                            : (rootWindow.currentLang === "fr" ? "⚠ Clé Manquante" : (rootWindow.currentLang === "ja" ? "⚠ 鍵なし" : "⚠ Key Missing"))
                       font.pixelSize: 11
                       font.bold: true
-                      color: (privKeyField.text.length > 20) ? "#16D2B6" : "#fc8181"
+                      color: (rootWindow.pluginRoot && rootWindow.pluginRoot.keys && rootWindow.pluginRoot.keys.has_private_key) ? "#16D2B6" : "#fc8181"
                     }
                   }
                 }
@@ -513,12 +516,13 @@ FloatingWindow {
                       color: Color.foreground
                       clip: true
                       selectByMouse: true
+                      // Seulement la clé publique est restaurée depuis le status
                       text: rootWindow.pluginRoot && rootWindow.pluginRoot.keys ? (rootWindow.pluginRoot.keys.public_key || "") : ""
                     }
                   }
                 }
 
-                // Private Key Field
+                // Private Key Field – CORRIGÉ : jamais pré-rempli depuis le status
                 Column {
                   width: parent.width
                   spacing: Style.space(4)
@@ -553,7 +557,11 @@ FloatingWindow {
                         clip: true
                         selectByMouse: true
                         echoMode: rootWindow.showPrivKey ? TextInput.Normal : TextInput.Password
-                        text: rootWindow.pluginRoot && rootWindow.pluginRoot.keys ? (rootWindow.pluginRoot.keys.private_key || "") : ""
+                        // CORRIGÉ : champ vide par défaut – l'utilisateur colle uniquement quand il veut changer
+                        text: ""
+                        placeholderText: (rootWindow.pluginRoot && rootWindow.pluginRoot.keys && rootWindow.pluginRoot.keys.has_private_key)
+                                         ? "••••••••  (already set – paste new key to replace)"
+                                         : "Paste private key here"
                       }
 
                       Button {
@@ -575,8 +583,22 @@ FloatingWindow {
                   selected: true
                   onClicked: {
                     if (rootWindow.pluginRoot) {
+                      if (privKeyField.text.length < 20) {
+                        rootWindow.addLog(
+                          rootWindow.currentLang === "fr" ? "Clé privée manquante ou trop courte." :
+                          (rootWindow.currentLang === "ja" ? "秘密鍵が不足しているか短すぎます。" : "Private key missing or too short."),
+                          "err"
+                        )
+                        return
+                      }
                       rootWindow.pluginRoot.saveKeys(pubKeyField.text, privKeyField.text)
-                      rootWindow.addLog(rootWindow.currentLang === "fr" ? "Clés enregistrées et injectées dans tous les profils .conf avec succès !" : (rootWindow.currentLang === "ja" ? "鍵が保存され、すべての.confファイルに適用されました！" : "Keys saved and applied to all .conf profiles successfully!"), "ok")
+                      // CORRIGÉ : efface immédiatement la clé privée de l'UI après envoi
+                      privKeyField.text = ""
+                      rootWindow.addLog(
+                        rootWindow.currentLang === "fr" ? "Clés enregistrées et injectées dans tous les profils .conf avec succès !" :
+                        (rootWindow.currentLang === "ja" ? "鍵が保存され、すべての.confファイルに適用されました！" : "Keys saved and applied to all .conf profiles successfully!"),
+                        "ok"
+                      )
                     }
                   }
                 }

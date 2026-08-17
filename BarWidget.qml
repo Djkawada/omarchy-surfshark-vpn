@@ -97,7 +97,8 @@ BarWidget {
   property var profileList: []
   property var favoriteList: []
   property string configDir: ""
-  property var keys: ({ public_key: "", private_key: "" })
+  // CORRIGÉ : on ne stocke plus jamais private_key dans le QML
+  property var keys: ({ public_key: "", has_private_key: false })
   property bool panelOpen: false
   property bool controlCenterOpen: false
   property bool isConnecting: false
@@ -110,9 +111,23 @@ BarWidget {
     }
   }
 
+  // CORRIGÉ : la clé privée n'apparaît plus dans les arguments du binaire surfshark-ctl
+  // On écrit dans un fichier temporaire 0600, le binaire le lit puis le supprime immédiatement.
   function saveKeys(pubKey, privKey) {
     saveKeysProc.running = false
-    saveKeysProc.command = ["systemd-run", "--user", "--pipe", root.ctlPath, "save-keys", pubKey, privKey]
+
+    var tmpPath = "/tmp/ss-priv-" + Date.now() + "-" + Math.floor(Math.random() * 1e9) + ".key"
+
+    saveKeysProc.command = [
+      "bash", "-c",
+      'umask 077; printf "%s" "$3" > "$1" && chmod 600 "$1" && ' +
+      '"' + root.ctlPath + '" save-keys "$2" "$1"; ' +
+      'rm -f "$1"',
+      "bash",
+      tmpPath,
+      pubKey,
+      privKey
+    ]
     saveKeysProc.running = true
   }
 
@@ -147,7 +162,7 @@ BarWidget {
 
   Process {
     id: openFolderProc
-    command: ["xdg-open", root.configDir || "/home/pierre/.config/surfshark-vpn/configs"]
+    command: ["xdg-open", root.configDir || (Quickshell.env("HOME") + "/.config/surfshark-vpn/configs")]
   }
 
   // Dismiss handler for PopupCard FocusGrab
@@ -235,7 +250,14 @@ BarWidget {
           root.profileList = data.profiles || []
           root.favoriteList = data.favorites || []
           root.configDir = data.config_dir || ""
-          if (data.keys) root.keys = data.keys
+
+          // CORRIGÉ : on n'accepte plus jamais private_key depuis le status
+          if (data.keys) {
+            root.keys = {
+              public_key: data.keys.public_key || "",
+              has_private_key: Boolean(data.keys.has_private_key)
+            }
+          }
           if (data.lang) root.manualLang = data.lang
         } catch (e) {
           console.log("[Surfshark] JSON parse error: " + e + " raw: " + text)
@@ -763,30 +785,27 @@ BarWidget {
         Button {
           text: "FR"
           selected: root.currentLang === "fr"
-          width: Style.space(42)
+          width: Style.space(36)
           onClicked: root.setLanguage("fr")
         }
         Button {
           text: "EN"
           selected: root.currentLang === "en"
-          width: Style.space(42)
+          width: Style.space(36)
           onClicked: root.setLanguage("en")
         }
         Button {
           text: "JA"
           selected: root.currentLang === "ja"
-          width: Style.space(42)
+          width: Style.space(36)
           onClicked: root.setLanguage("ja")
         }
       }
 
-      PanelSeparator {}
-
-      // Action Button for Large Control Center
+      // Open Control Center button
       Button {
         width: parent.width
         text: root.t("open_control_center")
-        bordered: true
         onClicked: {
           root.panelOpen = false
           root.openControlCenter()

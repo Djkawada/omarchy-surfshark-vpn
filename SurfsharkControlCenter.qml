@@ -557,11 +557,19 @@ FloatingWindow {
                         clip: true
                         selectByMouse: true
                         echoMode: rootWindow.showPrivKey ? TextInput.Normal : TextInput.Password
-                        // CORRIGÉ : champ vide par défaut – l'utilisateur colle uniquement quand il veut changer
                         text: ""
-                        placeholderText: (rootWindow.pluginRoot && rootWindow.pluginRoot.keys && rootWindow.pluginRoot.keys.has_private_key)
-                                         ? "••••••••  (already set – paste new key to replace)"
-                                         : "Paste private key here"
+
+                        Text {
+                          anchors.fill: parent
+                          verticalAlignment: Text.AlignVCenter
+                          font.family: "monospace"
+                          font.pixelSize: 12
+                          color: "#606d7e"
+                          visible: privKeyField.text.length === 0
+                          text: (rootWindow.pluginRoot && rootWindow.pluginRoot.keys && rootWindow.pluginRoot.keys.has_private_key)
+                                ? "••••••••  (already set – paste new key to replace)"
+                                : "Paste private key here"
+                        }
                       }
 
                       Button {

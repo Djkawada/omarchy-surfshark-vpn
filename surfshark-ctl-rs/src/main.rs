@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -24,15 +25,27 @@ impl Default for State {
             last_ipv6: "—".to_string(),
             last_ip: "—".to_string(),
             last_ip_check: 0,
-            favorites: vec!["fr-par".to_string(), "jp-tok".to_string(), "us-nyc".to_string()],
+            favorites: vec![
+                "fr-par".to_string(),
+                "jp-tok".to_string(),
+                "us-nyc".to_string(),
+            ],
         }
     }
 }
 
+/// Full keys stored on disk only (never returned in status)
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 struct Keys {
     public_key: String,
     private_key: String,
+}
+
+/// Safe subset returned to QML
+#[derive(Serialize, Debug)]
+struct KeysPublicOnly {
+    public_key: String,
+    has_private_key: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -54,7 +67,7 @@ struct ActiveConnection {
     device: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Debug)]
 struct StatusOutput {
     connected: bool,
     active_connection: Option<ActiveConnection>,
@@ -65,13 +78,13 @@ struct StatusOutput {
     profiles_count: usize,
     profiles: Vec<ProfileInfo>,
     favorites: Vec<ProfileInfo>,
-    keys: Keys,
+    keys: KeysPublicOnly,          // ← never contains private_key
     config_dir: String,
     lang: String,
 }
 
 fn get_config_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/pierre".to_string());
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
     PathBuf::from(home).join(".config").join("surfshark-vpn")
 }
 
@@ -144,6 +157,7 @@ fn save_keys_and_update_configs(pub_key: &str, priv_key: &str) {
         }
     }
 
+    // Inject private key into every .conf
     if !keys.private_key.is_empty() {
         let pdir = get_profiles_dir();
         if let Ok(entries) = fs::read_dir(pdir) {
@@ -249,6 +263,7 @@ fn get_installed_profiles(favorites: &[String]) -> Vec<ProfileInfo> {
 }
 
 fn get_active_connection() -> Option<ActiveConnection> {
+    // Prefer connections that start with our exclusive prefix
     if let Ok(output) = Command::new("nmcli")
         .args(["-t", "-f", "NAME,TYPE,DEVICE", "con", "show", "--active"])
         .output()
@@ -260,7 +275,23 @@ fn get_active_connection() -> Option<ActiveConnection> {
                 let name = parts[0];
                 let ctype = parts[1];
                 let device = parts.get(2).copied().unwrap_or("surfshark");
-                if ctype == "wireguard" || name == "surfshark-vpn" {
+                if ctype == "wireguard" && name.starts_with("surfshark-") {
+                    return Some(ActiveConnection {
+                        r#type: "nmcli".to_string(),
+                        name: name.to_string(),
+                        device: device.to_string(),
+                    });
+                }
+            }
+        }
+        // Fallback: any wireguard (legacy)
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() >= 2 {
+                let name = parts[0];
+                let ctype = parts[1];
+                let device = parts.get(2).copied().unwrap_or("surfshark");
+                if ctype == "wireguard" {
                     return Some(ActiveConnection {
                         r#type: "nmcli".to_string(),
                         name: name.to_string(),
@@ -285,9 +316,16 @@ fn get_active_connection() -> Option<ActiveConnection> {
 
 fn fetch_ip_sync() {
     let handle_v4 = std::thread::spawn(|| {
-        let urls = ["https://api.ipify.org", "https://ipv4.icanhazip.com", "https://v4.ident.me"];
+        let urls = [
+            "https://api.ipify.org",
+            "https://ipv4.icanhazip.com",
+            "https://v4.ident.me",
+        ];
         for url in urls {
-            if let Ok(output) = Command::new("curl").args(["-4", "-s", "-m", "2", url]).output() {
+            if let Ok(output) = Command::new("curl")
+                .args(["-4", "-s", "-m", "2", url])
+                .output()
+            {
                 let ip = String::from_utf8_lossy(&output.stdout).trim().to_string();
                 if !ip.is_empty() && ip.contains('.') {
                     return Some(ip);
@@ -298,9 +336,16 @@ fn fetch_ip_sync() {
     });
 
     let handle_v6 = std::thread::spawn(|| {
-        let urls = ["https://api64.ipify.org", "https://ipv6.icanhazip.com", "https://v6.ident.me"];
+        let urls = [
+            "https://api64.ipify.org",
+            "https://ipv6.icanhazip.com",
+            "https://v6.ident.me",
+        ];
         for url in urls {
-            if let Ok(output) = Command::new("curl").args(["-6", "-s", "-m", "2", url]).output() {
+            if let Ok(output) = Command::new("curl")
+                .args(["-6", "-s", "-m", "2", url])
+                .output()
+            {
                 let ip = String::from_utf8_lossy(&output.stdout).trim().to_string();
                 if !ip.is_empty() && ip.contains(':') {
                     return Some(ip);
@@ -344,8 +389,10 @@ fn cmd_status() {
             let conf = pdir.join(format!("{}.conf", p_id));
             Some(parse_profile_path(&conf, &state.favorites))
         } else if let Some(ref conn) = active_conn {
+            // Strip our prefix if present
+            let clean = conn.name.strip_prefix("surfshark-").unwrap_or(&conn.name);
             let pdir = get_profiles_dir();
-            let conf = pdir.join(format!("{}.conf", conn.name));
+            let conf = pdir.join(format!("{}.conf", clean));
             Some(parse_profile_path(&conf, &state.favorites))
         } else {
             Some(ProfileInfo {
@@ -363,34 +410,66 @@ fn cmd_status() {
         None
     };
 
-    if is_connected && (now_secs().saturating_sub(state.last_ip_check) > 30 || state.last_ipv4 == "—") {
+    if is_connected
+        && (now_secs().saturating_sub(state.last_ip_check) > 30 || state.last_ipv4 == "—")
+    {
         trigger_ip_fetch_daemon();
     }
 
-    let fav_profiles: Vec<ProfileInfo> = profiles.iter().filter(|p| p.is_favorite).cloned().collect();
+    let fav_profiles: Vec<ProfileInfo> = profiles
+        .iter()
+        .filter(|p| p.is_favorite)
+        .cloned()
+        .collect();
+
+    let keys_out = KeysPublicOnly {
+        public_key: keys.public_key.clone(),
+        has_private_key: !keys.private_key.is_empty(),
+    };
 
     let out = StatusOutput {
         connected: is_connected,
         active_connection: active_conn,
         active_profile,
-        public_ip: if is_connected { state.last_ipv4.clone() } else { "—".to_string() },
-        ipv4: if is_connected { state.last_ipv4 } else { "—".to_string() },
-        ipv6: if is_connected { state.last_ipv6 } else { "—".to_string() },
+        public_ip: if is_connected {
+            state.last_ipv4.clone()
+        } else {
+            "—".to_string()
+        },
+        ipv4: if is_connected {
+            state.last_ipv4
+        } else {
+            "—".to_string()
+        },
+        ipv6: if is_connected {
+            state.last_ipv6
+        } else {
+            "—".to_string()
+        },
         profiles_count: profiles.len(),
         profiles,
         favorites: fav_profiles,
-        keys,
+        keys: keys_out,
         config_dir: get_profiles_dir().to_string_lossy().to_string(),
         lang: state.lang,
     };
 
-    println!("{}", serde_json::to_string(&out).unwrap_or_else(|_| "{}".to_string()));
+    println!(
+        "{}",
+        serde_json::to_string(&out).unwrap_or_else(|_| "{}".to_string())
+    );
 }
 
 fn cmd_toggle_favorite(profile_id: &str) {
     let mut state = load_state();
-    let key = profile_id.replace("surfshark-", "").replace("surfshark_", "");
-    if let Some(pos) = state.favorites.iter().position(|x| x == &key || x == profile_id) {
+    let key = profile_id
+        .replace("surfshark-", "")
+        .replace("surfshark_", "");
+    if let Some(pos) = state
+        .favorites
+        .iter()
+        .position(|x| x == &key || x == profile_id)
+    {
         state.favorites.remove(pos);
     } else {
         state.favorites.push(key);
@@ -407,8 +486,43 @@ fn cmd_set_lang(l: &str) {
     println!(r#"{{"success":true,"lang":"{}"}}"#, l);
 }
 
-fn cmd_save_keys(pub_k: &str, priv_k: &str) {
-    save_keys_and_update_configs(pub_k, priv_k);
+/// Better option: private key never appears in argv.
+/// Accepts either:
+///   save-keys <public_key>          → private key on stdin
+///   save-keys <public_key> <path>   → private key read from file (then deleted)
+fn cmd_save_keys(args: &[String]) {
+    if args.len() < 3 {
+        println!(r#"{{"success":false,"error":"usage: save-keys <public_key> [priv_file]"}}"#);
+        return;
+    }
+    let pub_k = &args[2];
+
+    let priv_k = if args.len() >= 4 {
+        // Read from temporary file and immediately delete it
+        let path = Path::new(&args[3]);
+        let content = match fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(e) => {
+                println!(
+                    r#"{{"success":false,"error":"failed to read private key file: {}"}}"#,
+                    e
+                );
+                return;
+            }
+        };
+        let _ = fs::remove_file(path); // best-effort immediate unlink
+        content
+    } else {
+        // Read from stdin
+        let mut buf = String::new();
+        if io::stdin().read_to_string(&mut buf).is_err() {
+            println!(r#"{{"success":false,"error":"failed to read private key from stdin"}}"#);
+            return;
+        }
+        buf
+    };
+
+    save_keys_and_update_configs(pub_k, priv_k.trim());
     println!(r#"{{"success":true,"saved":true}}"#);
 }
 
@@ -421,8 +535,10 @@ fn main() {
             "fetch-ip" => fetch_ip_sync(),
             "toggle-favorite" if args.len() > 2 => cmd_toggle_favorite(&args[2]),
             "set-lang" if args.len() > 2 => cmd_set_lang(&args[2]),
-            "save-keys" if args.len() > 3 => cmd_save_keys(&args[2], &args[3]),
-            _ => println!("Usage: surfshark-ctl [status|fetch-ip|toggle-favorite <id>|set-lang <lang>|save-keys <pub> <priv>]"),
+            "save-keys" => cmd_save_keys(&args),
+            _ => println!(
+                "Usage: surfshark-ctl [status|fetch-ip|toggle-favorite <id>|set-lang <lang>|save-keys <pub> [priv_file]]"
+            ),
         }
     }
 }

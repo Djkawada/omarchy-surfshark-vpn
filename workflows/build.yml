@@ -1,0 +1,34 @@
+name: Build surfshark-ctl
+
+on:
+  push:
+    paths:
+      - 'surfshark-ctl-rs/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:   # permet de lancer manuellement
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binary
+        working-directory: surfshark-ctl-rs
+        run: cargo build --release
+
+      - name: Copy binary to bin/
+        run: |
+          cp surfshark-ctl-rs/target/release/surfshark-ctl bin/surfshark-ctl
+          chmod +x bin/surfshark-ctl
+
+      - name: Commit binary back to repo
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add bin/surfshark-ctl
+          git diff --staged --quiet || git commit -m "ci: rebuild surfshark-ctl"
+          git push

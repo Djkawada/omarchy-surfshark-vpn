@@ -5,11 +5,12 @@ import Quickshell
 import Quickshell.Io
 import qs.Ui
 import qs.Commons
+import qs.Commons as Commons
 
 FloatingWindow {
   id: rootWindow
   title: "Surfshark VPN Manager"
-  color: Color.background
+  color: Commons.Color.background
   implicitWidth: Style.space(1020)
   implicitHeight: Style.space(720)
   minimumSize: Qt.size(Style.space(860), Style.space(600))
@@ -92,14 +93,14 @@ FloatingWindow {
               font.family: Style.font.family
               font.pixelSize: Style.font.title
               font.bold: true
-              color: Color.foreground
+              color: Commons.Color.foreground
             }
 
             Text {
               text: (pluginRoot && pluginRoot.isConnected) ? ("🟢 " + rootWindow.t("connected") + " • " + (pluginRoot.activeProfile ? pluginRoot.activeProfile.display_name : "WireGuard")) : ("⚪ " + rootWindow.t("disconnected") + " • Omarchy Linux")
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
-              color: (pluginRoot && pluginRoot.isConnected) ? "#16D2B6" : Color.muted
+              color: (pluginRoot && pluginRoot.isConnected) ? "#16D2B6" : Commons.Color.muted
             }
           }
         }
@@ -222,8 +223,8 @@ FloatingWindow {
                     Column {
                       anchors.centerIn: parent
                       spacing: 2
-                      Text { text: "IPv4 Publique"; font.pixelSize: Style.font.caption - 2; color: Color.muted; anchors.horizontalCenter: parent.horizontalCenter }
-                      Text { text: rootWindow.pluginRoot ? rootWindow.pluginRoot.ipv4 : "—"; font.pixelSize: Style.font.caption; font.bold: true; color: (rootWindow.pluginRoot && rootWindow.pluginRoot.isConnected) ? "#16D2B6" : Color.foreground; anchors.horizontalCenter: parent.horizontalCenter }
+                      Text { text: "IPv4 Publique"; font.pixelSize: Style.font.caption - 2; color: Commons.Color.muted; anchors.horizontalCenter: parent.horizontalCenter }
+                      Text { text: rootWindow.pluginRoot ? rootWindow.pluginRoot.ipv4 : "—"; font.pixelSize: Style.font.caption; font.bold: true; color: (rootWindow.pluginRoot && rootWindow.pluginRoot.isConnected) ? "#16D2B6" : Commons.Color.foreground; anchors.horizontalCenter: parent.horizontalCenter }
                     }
                   }
 
@@ -238,7 +239,7 @@ FloatingWindow {
                     Column {
                       anchors.centerIn: parent
                       spacing: 2
-                      Text { text: "Protocole"; font.pixelSize: Style.font.caption - 2; color: Color.muted; anchors.horizontalCenter: parent.horizontalCenter }
+                      Text { text: "Protocole"; font.pixelSize: Style.font.caption - 2; color: Commons.Color.muted; anchors.horizontalCenter: parent.horizontalCenter }
                       Text { text: "WireGuard (Kernel)"; font.pixelSize: Style.font.caption; font.bold: true; color: "#00ff66"; anchors.horizontalCenter: parent.horizontalCenter }
                     }
                   }
@@ -322,7 +323,7 @@ FloatingWindow {
                         anchors.centerIn: parent
                         text: modelData.is_favorite ? "⭐" : "☆"
                         font.pixelSize: 16
-                        color: modelData.is_favorite ? "#ffd700" : Color.muted
+                        color: modelData.is_favorite ? "#ffd700" : Commons.Color.muted
                       }
 
                       MouseArea {
@@ -366,7 +367,7 @@ FloatingWindow {
                         font.family: Style.font.family
                         font.pixelSize: 12
                         font.bold: true
-                        color: ccCard.isActive ? "#16D2B6" : (ccMouse.containsMouse ? "#ffffff" : Color.muted)
+                        color: ccCard.isActive ? "#16D2B6" : (ccMouse.containsMouse ? "#ffffff" : Commons.Color.muted)
                       }
                     }
 
@@ -384,7 +385,7 @@ FloatingWindow {
                         font.family: Style.font.family
                         font.pixelSize: 14
                         font.bold: true
-                        color: ccCard.isActive ? "#16D2B6" : Color.foreground
+                        color: ccCard.isActive ? "#16D2B6" : Commons.Color.foreground
                         elide: Text.ElideRight
                         width: parent.width
                       }
@@ -392,7 +393,7 @@ FloatingWindow {
                         text: modelData.city
                         font.family: Style.font.family
                         font.pixelSize: 12
-                        color: Color.muted
+                        color: Commons.Color.muted
                         elide: Text.ElideRight
                         width: parent.width
                       }
@@ -496,7 +497,7 @@ FloatingWindow {
                     text: rootWindow.currentLang === "fr" ? "Clé Publique (Public Key) :" : (rootWindow.currentLang === "ja" ? "公開鍵 (Public Key) :" : "Public Key :")
                     font.pixelSize: 12
                     font.bold: true
-                    color: Color.muted
+                    color: Commons.Color.muted
                   }
 
                   Rectangle {
@@ -513,7 +514,7 @@ FloatingWindow {
                       anchors.margins: Style.space(8)
                       font.family: "monospace"
                       font.pixelSize: 12
-                      color: Color.foreground
+                      color: Commons.Color.foreground
                       clip: true
                       selectByMouse: true
                       // Seulement la clé publique est restaurée depuis le status
@@ -531,7 +532,7 @@ FloatingWindow {
                     text: rootWindow.currentLang === "fr" ? "Clé Privée (Private Key) :" : (rootWindow.currentLang === "ja" ? "秘密鍵 (Private Key) :" : "Private Key :")
                     font.pixelSize: 12
                     font.bold: true
-                    color: Color.muted
+                    color: Commons.Color.muted
                   }
 
                   Rectangle {
@@ -553,7 +554,7 @@ FloatingWindow {
                         height: parent.height
                         font.family: "monospace"
                         font.pixelSize: 12
-                        color: Color.foreground
+                        color: Commons.Color.foreground
                         clip: true
                         selectByMouse: true
                         echoMode: rootWindow.showPrivKey ? TextInput.Normal : TextInput.Password
@@ -648,7 +649,7 @@ FloatingWindow {
                       text: rootWindow.currentLang === "fr" ? "Connectez-vous sur votre compte Surfshark (VPN > Configuration manuelle > WireGuard)." : (rootWindow.currentLang === "ja" ? "Surfshark Webサイト (VPN > 手動設定 > WireGuard) にアクセスします。" : "Log in to your Surfshark account (VPN > Manual setup > WireGuard).")
                       font.family: Style.font.family
                       font.pixelSize: Style.font.caption - 1
-                      color: Color.foreground
+                      color: Commons.Color.foreground
                       wrapMode: Text.WordWrap
                     }
                   }
@@ -663,7 +664,7 @@ FloatingWindow {
                       text: rootWindow.currentLang === "fr" ? "Cliquez sur « J'ai déjà une paire de clés » ou générez une nouvelle paire de clés WireGuard." : (rootWindow.currentLang === "ja" ? "「鍵ペアを持っています」を選択するか、新しいWireGuard鍵ペアを生成します。" : "Click “I already have a key pair” or generate a new WireGuard key pair.")
                       font.family: Style.font.family
                       font.pixelSize: Style.font.caption - 1
-                      color: Color.foreground
+                      color: Commons.Color.foreground
                       wrapMode: Text.WordWrap
                     }
                   }
@@ -678,7 +679,7 @@ FloatingWindow {
                       text: rootWindow.currentLang === "fr" ? "Collez votre Clé Publique et Clé Privée dans les champs ci-dessus et cliquez sur Enregistrer." : (rootWindow.currentLang === "ja" ? "上記の入力欄に公開鍵と秘密鍵を貼り付け、「保存して適用」をクリックします。" : "Paste your Public Key & Private Key in the fields above and click Save.")
                       font.family: Style.font.family
                       font.pixelSize: Style.font.caption - 1
-                      color: Color.foreground
+                      color: Commons.Color.foreground
                       wrapMode: Text.WordWrap
                     }
                   }
@@ -693,7 +694,7 @@ FloatingWindow {
                       text: rootWindow.currentLang === "fr" ? "Téléchargez les fichiers .conf de vos pays favoris et glissez-les dans le dossier configs !" : (rootWindow.currentLang === "ja" ? "接続したい国の設定ファイル (.conf) をダウンロードし、configsフォルダに配置します。" : "Download the .conf files for your favorite locations and drop them into the configs folder!")
                       font.family: Style.font.family
                       font.pixelSize: Style.font.caption - 1
-                      color: Color.foreground
+                      color: Commons.Color.foreground
                       wrapMode: Text.WordWrap
                     }
                   }
@@ -769,7 +770,7 @@ FloatingWindow {
                     text: modelData.text
                     font.family: "monospace"
                     font.pixelSize: 10
-                    color: modelData.type === "ok" ? "#16D2B6" : (modelData.type === "err" ? "#ff4444" : Color.muted)
+                    color: modelData.type === "ok" ? "#16D2B6" : (modelData.type === "err" ? "#ff4444" : Commons.Color.muted)
                     wrapMode: Text.Wrap
                   }
                 }

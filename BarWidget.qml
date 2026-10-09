@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Ui
 import qs.Commons
+import qs.Commons as Commons
 
 BarWidget {
   id: root
@@ -361,14 +362,14 @@ BarWidget {
               font.family: Style.font.family
               font.pixelSize: 15
               font.bold: true
-              color: Color.foreground
+              color: Commons.Color.foreground
             }
 
             Text {
               text: root.isConnected ? (root.t("connected") + " • " + (root.activeProfile ? root.activeProfile.display_name : "WireGuard")) : root.t("disconnected")
               font.family: Style.font.family
               font.pixelSize: 12
-              color: root.isConnected ? "#16D2B6" : Color.muted
+              color: root.isConnected ? "#16D2B6" : Commons.Color.muted
             }
           }
         }
@@ -397,14 +398,14 @@ BarWidget {
               font.family: Style.font.family
               font.pixelSize: 12
               font.bold: true
-              color: Color.muted
+              color: Commons.Color.muted
             }
             Text {
               text: root.ipv4
               font.family: "monospace"
               font.pixelSize: 12
               font.bold: true
-              color: root.isConnected ? "#16D2B6" : Color.foreground
+              color: root.isConnected ? "#16D2B6" : Commons.Color.foreground
             }
           }
 
@@ -418,14 +419,14 @@ BarWidget {
               font.family: Style.font.family
               font.pixelSize: 11
               font.bold: true
-              color: Color.muted
+              color: Commons.Color.muted
             }
             Text {
               text: root.ipv6
               font.family: "monospace"
               font.pixelSize: 11
               font.bold: true
-              color: root.isConnected ? "#16D2B6" : Color.foreground
+              color: root.isConnected ? "#16D2B6" : Commons.Color.foreground
             }
           }
         }
@@ -538,7 +539,7 @@ BarWidget {
                   font.family: Style.font.family
                   font.pixelSize: 12
                   font.bold: true
-                  color: favCard.isActive ? "#16D2B6" : ((root.isConnecting && root.pendingProfileId === modelData.id) ? "#ffd700" : (favMouse.containsMouse ? "#ffffff" : Color.muted))
+                  color: favCard.isActive ? "#16D2B6" : ((root.isConnecting && root.pendingProfileId === modelData.id) ? "#ffd700" : (favMouse.containsMouse ? "#ffffff" : Commons.Color.muted))
                 }
               }
 
@@ -556,7 +557,7 @@ BarWidget {
                   font.family: Style.font.family
                   font.pixelSize: 14
                   font.bold: true
-                  color: favCard.isActive ? "#16D2B6" : Color.foreground
+                  color: favCard.isActive ? "#16D2B6" : Commons.Color.foreground
                   elide: Text.ElideRight
                   width: parent.width
                 }
@@ -564,7 +565,7 @@ BarWidget {
                   text: modelData.city
                   font.family: Style.font.family
                   font.pixelSize: 12
-                  color: Color.muted
+                  color: Commons.Color.muted
                   elide: Text.ElideRight
                   width: parent.width
                 }
@@ -620,7 +621,7 @@ BarWidget {
                   anchors.centerIn: parent
                   text: modelData.is_favorite ? "⭐" : "☆"
                   font.pixelSize: 16
-                  color: modelData.is_favorite ? "#ffd700" : Color.muted
+                  color: modelData.is_favorite ? "#ffd700" : Commons.Color.muted
                 }
 
                 MouseArea {
@@ -665,7 +666,7 @@ BarWidget {
                   font.family: Style.font.family
                   font.pixelSize: 12
                   font.bold: true
-                  color: allCard.isActive ? "#16D2B6" : ((root.isConnecting && root.pendingProfileId === modelData.id) ? "#ffd700" : (allMouse.containsMouse ? "#ffffff" : Color.muted))
+                  color: allCard.isActive ? "#16D2B6" : ((root.isConnecting && root.pendingProfileId === modelData.id) ? "#ffd700" : (allMouse.containsMouse ? "#ffffff" : Commons.Color.muted))
                 }
               }
 
@@ -683,7 +684,7 @@ BarWidget {
                   font.family: Style.font.family
                   font.pixelSize: 14
                   font.bold: true
-                  color: allCard.isActive ? "#16D2B6" : Color.foreground
+                  color: allCard.isActive ? "#16D2B6" : Commons.Color.foreground
                   elide: Text.ElideRight
                   width: parent.width
                 }
@@ -691,7 +692,7 @@ BarWidget {
                   text: modelData.city
                   font.family: Style.font.family
                   font.pixelSize: 12
-                  color: Color.muted
+                  color: Commons.Color.muted
                   elide: Text.ElideRight
                   width: parent.width
                 }
@@ -748,7 +749,7 @@ BarWidget {
                 text: root.t("setup_hint")
                 font.family: Style.font.family
                 font.pixelSize: 12
-                color: Color.muted
+                color: Commons.Color.muted
                 wrapMode: Text.WordWrap
                 width: parent.width
                 lineHeight: 1.35
@@ -773,7 +774,7 @@ BarWidget {
           text: root.t("lang_label")
           font.family: Style.font.family
           font.pixelSize: 12
-          color: Color.muted
+          color: Commons.Color.muted
           anchors.verticalCenter: parent.verticalCenter
         }
 

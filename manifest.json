@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "com.github.djkawada.surfshark-vpn",
   "name": "Surfshark VPN",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Pierre (Djkawada)",
   "license": "MIT",
   "description": "Fast, native, zero-bloat WireGuard VPN manager for Surfshark on Omarchy Linux.",
